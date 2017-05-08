@@ -113,7 +113,7 @@ End:
 }
 
 
-char* my_decrypt(char *str, int lenth, char *privatePathKey)
+char* my_decrypt(char *str, int lenth, int *deDataLenth, char *privatePathKey)
 {
 	char *pDeData = NULL;
 	RSA  *pRsa = NULL;
@@ -145,7 +145,7 @@ char* my_decrypt(char *str, int lenth, char *privatePathKey)
 	memset(pDeData, 0, lenth + 1 );
     
     //if((RSA_private_decrypt(rsaLen,  (unsigned char *)str,  (unsigned char *)pDeData, pRsa, RSA_NO_PADDING)) < 0)
-	if((RSA_private_decrypt(lenth, (unsigned char *)str, (unsigned char *)pDeData, pRsa, RSA_PKCS1_PADDING)) < 0)
+	if((*deDataLenth = RSA_private_decrypt(lenth, (unsigned char *)str, (unsigned char *)pDeData, pRsa, RSA_PKCS1_PADDING)) < 0)
     {
     	myprint("Err : func RSA_private_decrypt()");
 		free(pDeData);
@@ -162,15 +162,74 @@ End:
 }
 
 
-int encryptFileData(char *filePath)
+
+int decryptFileData(char *filePath, char *privatePathKey)
+{
+	int ret = 0;
+	FILE *srcFp = NULL, *decryFp = NULL;
+	char *tmp = NULL;
+	char decFileName[FILENAMELENTH];
+	char srcContent[256];
+	int nread = 0, deDataLenth = 0, nwrite = 0;
+	char *decryptData = NULL;
+	
+		
+	if(!filePath || !privatePathKey)
+	{
+		myprint("Err : filePath : %p", filePath); 	  
+		goto End;  
+	}
+	
+	//1. open The file
+	if((srcFp = fopen(filePath, "rb")) == NULL)		assert(0);
+	
+	//2. get The SrcFile suffix
+	memset(decFileName, 0, FILENAMELENTH);
+	if((tmp = strrchr(filePath, '.')))			
+	{
+		memcpy(decFileName, filePath, strlen(filePath) - strlen(tmp));
+		strcat(decFileName, "_DECRYPT");
+		strcat(decFileName, tmp);
+	}
+	else
+	{
+		memcpy(decFileName, filePath, strlen(filePath) - strlen(tmp));
+		strcat(decFileName, "_DECRYPT");
+	}
+
+	//3. create The decrypt File
+	if((decryFp = fopen(decFileName, "ab+")) == NULL)		assert(0);
+
+	//2. encrypt Data from file; once 245 BYTE
+	while(!(feof(srcFp)))
+	{
+		if((nread = fread(srcContent, 1, sizeof(srcContent) , srcFp)) < 0)				assert(0);
+		if(nread == 0)	break;
+		if((decryptData = my_decrypt(srcContent, 256, &deDataLenth, privatePathKey)) == NULL)	assert(0);		
+		if((nwrite = fwrite(decryptData, 1, deDataLenth, decryFp)) < 0)					assert(0);    
+		memset(srcContent, 0, sizeof(srcContent));                    		
+	}
+
+End:
+	if(srcFp)				fclose(srcFp);
+	if(decryFp)				fclose(decryFp);
+	return ret;	
+}
+
+
+
+int encryptFileData(char *filePath, char *publicPathKey)
 {
 	int ret = 0;
 	FILE *srcFp = NULL, *encryFp = NULL;
 	char *tmp = NULL;
 	char decFileName[FILENAMELENTH];
 	char srcContent[245];
-
-	if(!filePath)
+	int nread = 0, enDataLenth = 0, nwrite = 0;
+	char *encryptData = NULL;
+	
+	
+	if(!filePath || !publicPathKey)
 	{
 		myprint("Err : filePath : %p", filePath); 	  
 		goto End;  
@@ -181,7 +240,7 @@ int encryptFileData(char *filePath)
 
 	//2. get The SrcFile suffix
 	memset(decFileName, 0, FILENAMELENTH);
-	if((tmp = strrchr(filePath, '.')))		sprintf(decFileName, "%s", );		
+	if((tmp = strrchr(filePath, '.')))			
 	{
 		memcpy(decFileName, filePath, strlen(filePath) - strlen(tmp));
 		strcat(decFileName, "_ENCRYPT");
@@ -197,13 +256,18 @@ int encryptFileData(char *filePath)
 	if((encryFp = fopen(decFileName, "ab+")) == NULL)		assert(0);
 
 	//2. encrypt Data from file; once 245 BYTE
-	while(!(feof(fp)))
-	{
-		
+	while(!(feof(srcFp)))
+	{		
+		if((nread = fread(srcContent, 1, sizeof(srcContent), srcFp)) < 0)				assert(0);
+		if((encryptData = my_encrypt_publicCert(srcContent, nread, &enDataLenth, publicPathKey)) == NULL)	assert(0);		
+		if((nwrite = fwrite(encryptData, 1, enDataLenth, encryFp)) < 0)					assert(0);  
+		memset(srcContent, 0, sizeof(srcContent));                   		
 	}
 			
 End:
-
+	if(srcFp)				fclose(srcFp);
+	if(encryFp)				fclose(encryFp);
+		
 	return ret;
 }
 

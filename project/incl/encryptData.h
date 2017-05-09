@@ -6,6 +6,8 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
 #define FILENAMELENTH  1024
 
 #define myprint( x...) do {char bufMessagePut_Stdout_[1024];\
@@ -54,6 +56,29 @@ int encryptFileData(char *filePath, char *publicPathKey);
 *@retval: success 0, fail -1;
 */
 int decryptFileData(char *filePath, char *privatePathKey);
+
+/*判断指定文件是否存在
+*@param : filePath  指定文件路径
+*@retval: exist true,  absent false;
+*/
+bool if_file_exist(const char *filePath);
+
+
+/*自实现system 命令
+*@param : cmd_line 指定命令
+*@retval: success The cmd shell return value > 0; fail -1;
+*/
+int pox_system(const char *cmd_line); 
+
+/*获取子串在母串中的位置
+*@param : full_data 	  母串数据地址
+*@param : full_data_len   母串数据长度
+*@param : substr		  子串数据
+*@retval: success find The location, fail NULL;
+*/
+char* memstr(char* full_data, int full_data_len, char* substr); 
+
+
 
 #ifdef __cplusplus
 }

@@ -12,21 +12,25 @@ src = $(wildcard ./src/*.c)
 obj = $(patsubst %.c, %.o, $(src))
 
 encry_dec_data = encry_dec_data
+test = test_debug
 
-target = $(encry_dec_data)
+target = $(encry_dec_data) $(test)
 
 ALL:$(target)
     
 #生成所有的.o文件
 $(obj):%.o:%.c
-	$(CC) -c $< -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS) 
+	$(CC) -c $< -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS) -D _OS_LINUX_
 	
 	
 	
 #encry_dec_data
 $(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o
-	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)
+	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
 	
+#test
+$(test):./src/test.o
+	$(CC) $^ -o $@ $(CPPFLAGS)
 	
 	
 #clean指令

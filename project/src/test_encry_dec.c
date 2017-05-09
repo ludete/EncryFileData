@@ -9,6 +9,8 @@
 #define PRIVATEKEY 	"/home/yyx/MyEncryProject/EncryFileData/clientCert/client-key.pem"
 #define PUBLICKEY 	"/home/yyx/MyEncryProject/EncryFileData/clientCert/client-cert.pem"
 
+
+
 void test_content()
 {
 	int decryptDataLenth = 0;
@@ -53,12 +55,13 @@ void test_encryptFile()
 {
 	int ret = 0;
 	if((ret = encryptFileData("C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);
-		
+//	if((ret = encryptFileData("/home/yyx/MyEncryProject/EncryFileData/project/C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);	
 }
 
 void test_decryptFile()
 {
 	int ret = 0;
+//	if((ret = decryptFileData("/home/yyx/MyEncryProject/EncryFileData/project/C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY)) < 0)		assert(0);
 	if((ret = decryptFileData("C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY)) < 0)		assert(0);
 }
 
@@ -66,7 +69,7 @@ int main()
 {
 	int ret = 0;
 
-	//test_encryptFile();
+	test_encryptFile();
 	test_decryptFile();
 	//test_content();	
 	

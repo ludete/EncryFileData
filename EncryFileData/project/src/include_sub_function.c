@@ -113,11 +113,11 @@ End:
 }
 
 //
-int get_workThreadNum(int workRounds, int liveThreadNum)
+int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum)
 {
 	int ret = 0;
 	
-	if(workRounds < 0 || liveThreadNum < 0)
+	if(workRounds < 0 || liveThreadNum < 0 || !lowRoundNum)
 	{
 		myprint("Err : workRounds : %d, liveThreadNum : %d ", workRounds, liveThreadNum);
 		ret = -1;
@@ -129,7 +129,12 @@ int get_workThreadNum(int workRounds, int liveThreadNum)
 		ret = workRounds / liveThreadNum + 1;
 	else
 		ret = workRounds / liveThreadNum;
-
+	
+	//2. get The low round Number for per-thread
+	if(ret == liveThreadNum)
+		*lowRoundNum = workRounds / ret;
+	else
+		*lowRoundNum = 0;
 End:
 
 	return ret;

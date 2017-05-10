@@ -12,6 +12,8 @@
 #define ENCRYFLAG  "_ENCRYPT"
 #define DECRYFLAG  "_DECRYPT"
 #define ENCRYMAXSIZE  245
+#define LIVETHRM    10
+
 
 struct _encry_handle{
 	
@@ -20,6 +22,7 @@ struct _encry_handle{
 	uint32_t	 encrySize;
 	uint32_t     initPosition;
 	RSA			*pRsa;
+	int 		workRoundNum;
 	
 };
 
@@ -516,3 +519,71 @@ End:
 }
 
 
+int mutilEncryFile(char *filePath, char *publicPathKey)
+{
+	int ret = 0;
+	int roundNum = 0;			//文件加密的总轮次数
+	int threadNum = 0;			//加密文件所需的总线程数
+	int lowRoundNum = 0, MaxRoundNum = 0;	//每个线程的最低加密次数 和最大加密次数
+	if(!filePath || !publicPathKey)
+	
+	//1. get The file encry round Number
+	if((roundNum = get_encryNum_fromFile(filePath, ENCRYMAXSIZE)) < 0)
+	{
+		myprint("Err : func get_encryNum_fromFile()");
+		ret = -1;
+		goto End; 		
+	}
+	
+	//2. get The thread Number for work to encry file
+	if((threadNum = get_workThreadNum(roundNum, LIVETHRM, &lowRoundNum)) < 0)
+	{
+		myprint("Err : func get_workThreadNum()");
+		ret = -1;
+		goto End; 	
+	}
+	
+	
+	get_residueSize_needThreadNum(filePath, threadNum, lowRoundNum, ENCRYMAXSIZE)
+	
+End:	
+	return ret;
+}
+
+int get_residueSize_needThreadNum(char *filePath, int threadNum, int lowRoundNum, int baseSize, int *size)
+{
+	int ret = 0;	
+	int fileSize = 0;		//文件大小
+	int resiFileSize = 0;
+	
+	
+	if(lowRoundNum == 0)		return 0;
+	
+	if(!filePath || threadNum < 0 || lowRoundNum < 0 || baseSize < 0)	
+	{
+		myprint("Err : filePath : %p, threadNum : %d, lowRoundNum : %d, baseSize : %d", filePath, threadNum, lowRoundNum, baseSize);
+		ret = -1;
+		goto End; 	
+	}	
+		
+	//1. get fileSize	
+	if((fileSize = get_file_size(filePath)) < 0)
+	{
+		myprint("Err : func get_file_size()");
+		ret = -1;
+		goto End; 
+	}
+	
+	//2.get The residue fileSize
+	resiFileSize = fileSize - threadNum * baseSize * lowRoundNum;
+	
+	//3. get The residue fileSize need threadNum
+	ret = resiFileSize / baseSize;
+	
+	//4.
+	if((resiFileSize % baseSize) > 0)	
+		size = resiFileSize - baseSize * ret;
+End:
+			
+	return ret;
+}

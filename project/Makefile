@@ -13,8 +13,9 @@ obj = $(patsubst %.c, %.o, $(src))
 
 encry_dec_data = encry_dec_data
 test = test_debug
+test_thread_pool = test_thread_pool
 
-target = $(encry_dec_data) $(test)
+target = $(encry_dec_data) $(test) $(test_thread_pool)
 
 ALL:$(target)
     
@@ -31,7 +32,11 @@ $(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o
 #test
 $(test):./src/test.o
 	$(CC) $^ -o $@ $(CPPFLAGS)
+
 	
+#test_thread_pool
+$(test_thread_pool):./src/test_thread_pool.o  ./src/thread_pool.o
+	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  	
 	
 #clean÷∏¡Ó
 

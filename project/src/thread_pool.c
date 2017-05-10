@@ -10,9 +10,9 @@
 
 #include "thread_pool.h"
 
-#define DEFAULT_TIME 10 				/*10s检测一次*/ 
+#define DEFAULT_TIME 3 				/*10s检测一次*/ 
 #define MIN_WAIT_TASK_NUM 10			/*如果queue_size > MIN_WAIT_TASK_NUM 添加新的线程到线程池*/  
-#define DEFAULT_THREAD_VARY 10 		 	/*每次创建和销毁线程的个数*/ 
+#define DEFAULT_THREAD_VARY 3 		 	/*每次创建和销毁线程的个数*/ 
 
 
 
@@ -190,9 +190,9 @@ void *threadpool_thread(void * threadpool)
 			//2.清除指定数目的空闲线程, 
 			if(pool->wait_exit_thr_num > 0)
 			{
-				pool->wait_exit_thr_num--;
+				pool->wait_exit_thr_num--;		//注意: 只有当符合下步条件时, 才会导致线程真正退出
 
-				//线程池的存活线程个数 大于 最小值, 可以结束当前线程
+				//线程池的存活线程个数 大于 最小值, 才可以结束当前线程
 				if(pool->live_thr_num > pool->min_thr_num)
 				{
 					pool->live_thr_num--;
@@ -206,7 +206,7 @@ void *threadpool_thread(void * threadpool)
 		if(pool->shutdown)
 		{
 			pthread_mutex_unlock(&(pool->lock));
-			myprint("Thread 0x%x is exit", (unsigned int)pthread_self());			
+			myprint("Thread 0x%x is exit", (unsigned int)pthread_self());					
 			pthread_exit(NULL);
 		}
 		
@@ -244,31 +244,27 @@ void *adjust_thread(void * threadpool)
 {
 	int i = 0;
 	threadpool_t  *pool = (threadpool_t*)threadpool;
-	pthread_detach(pthread_self());
+	//pthread_detach(pthread_self());
 	
 	//线程池的工作 过程
 	while(!pool->shutdown)
-	{
-		myprint("=========== 2 =========");
+	{		
 		sleep(DEFAULT_TIME);
-			myprint("=========== 3 =========");
+		
 		pthread_mutex_lock(&(pool->lock));
 		int queue_size = pool->queue_size;
 		int live_thr_num = pool->live_thr_num;
-		pthread_mutex_unlock(&(pool->thread_counter));
-	
+		pthread_mutex_unlock(&(pool->lock));
 		
 		pthread_mutex_lock(&(pool->thread_counter));
 		int busy_thr_num = pool->busy_thr_num;
 		pthread_mutex_unlock(&(pool->thread_counter));
-		myprint("=========== 4 =========");
 
 		//创建新线程算法 : 任务数大于最小线程个数, 且存活的线程个数 小与最大线程数
 		if(queue_size > MIN_WAIT_TASK_NUM && live_thr_num < pool->max_thr_num)
 		{
 			pthread_mutex_lock(&(pool->lock));
 			int add = 0;
-
 
 			//一次增加 DEFAULT_THREAD_VARY 个线程
 			for(i = 0; i < pool->max_thr_num && pool->live_thr_num < pool->max_thr_num
@@ -280,21 +276,22 @@ void *adjust_thread(void * threadpool)
 			}		
 			pthread_mutex_unlock(&(pool->lock));
 		}
-		myprint("=========== 5 =========");
 
+#if 1
+	//注销本段代码, 是因为:测试阶段属于小任务量, 每次都走这个分支, 进行线程销毁子线程(默认每次销毁10个),测不出下面销毁方法的功能 
 		//销毁多余空闲线程的算法 : 忙线程X2 小于 存活的线程数 且 存活的线程数 大于 最小线程数时
 		if(busy_thr_num * 2 < live_thr_num && live_thr_num < pool->max_thr_num)
 		{
 			pthread_mutex_lock(&(pool->lock));
 			pool->wait_exit_thr_num = DEFAULT_THREAD_VARY;
-			pthread_mutex_unlock(&(pool->lock));
-			myprint("=========== 51 =========");
+			pthread_mutex_unlock(&(pool->lock));		
 			//通知一定数量的线程, 让其自行终止
 			for(i = 0; i < DEFAULT_THREAD_VARY; i++)
-				pthread_cond_signal(&(pool->queue_not_empty));	
-			myprint("=========== 52 =========");
+			{			
+				pthread_cond_signal(&(pool->queue_not_empty));
+			}
 		}
-			myprint("=========== 6 =========");
+#endif			
 	}
 	
 	printf("\n\n adjust_thread exit !!!! \n\n");
@@ -310,24 +307,24 @@ int threadpool_destroy(threadpool_t *pool)
 	if(pool == NULL)
 		return -1;
 
+	//1. 修改句柄, 进行线程销毁
 	pool->shutdown = true;
 
-	//先销毁管理线程
-		myprint("****************** 1 *******************");
+	//2. 先销毁管理线程, 该线程没有被分离, 需要进行回收		
 	pthread_join(pool->adjust_tid, NULL);
-	myprint("****************** 2 *******************");
 
-	//通知所有任务线程
+	//3. 通知所有任务线程, 进行销毁
 	for(i = 0; i < pool->live_thr_num; i++)	
 		pthread_cond_broadcast(&(pool->queue_not_empty));
-			myprint("****************** 3 *******************");
-	for(i = 0; i < pool->live_thr_num; i++)
-		pthread_join(pool->threads[i], NULL);		
-	myprint("****************** 4 *******************");
 
+	//4. 因为子线程分离, 所以销毁子线程时, 不需要进行回收;
+	//for(i = 0; i < pool->live_thr_num; i++)
+	//	pthread_join(pool->threads[i], NULL);		
+	
+	//5. 销毁句柄
 	if((ret = threadpool_free(pool)) < 0)	
-		myprint("Err : func threadpool_free() ");
-			myprint("****************** 5 *******************");
+		myprint("Err : func threadpool_free() ");			
+	
 
 	return ret;
 }
@@ -344,22 +341,19 @@ int threadpool_free(threadpool_t * pool)
 	if(pool->task_queue)
 		free(pool->task_queue);
 
-	printf("----------- 01 -------------------\n");
 	if(pool->threads)
-	{
+	{	
 		free(pool->threads);
-		//pthread_mutex_lock(&(pool->lock));
 		pthread_mutex_destroy(&(pool->lock));
-	//	pthread_mutex_lock(&(pool->thread_counter));
 		pthread_mutex_destroy(&(pool->thread_counter));
 		pthread_cond_destroy(&(pool->queue_not_full));
-		pthread_cond_destroy(&(pool->queue_not_full));		
+		pthread_cond_destroy(&(pool->queue_not_empty));
 	}
-	printf("----------- 02 -------------------\n");
 	
 	free(pool);
 	pool = NULL;
-
+	myprint("func threadpool_free() end ...");
+	
 	return 0;
 }
 

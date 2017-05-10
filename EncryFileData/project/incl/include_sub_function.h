@@ -48,6 +48,14 @@ bool if_file_exist(const char *filePath);
 int get_encryNum_fromFile(char *fileName, int baseSize);
 
 
+/*获取文件总加密任务轮次,需要的线程总数
+*@param : workRounds   		文件加密的总轮次
+*@retval: liveThreadNum   	线程池存活线程总数
+*@param : lowRoundNum       每个线程工作的最低轮次
+*@retval: success The Number of thread, fail -1;
+*/
+int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum)
+
 
 #ifdef __cplusplus
 }

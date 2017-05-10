@@ -9,17 +9,18 @@
 #include <stdbool.h>
 
 #include "thread_pool.h"
+#include "include_sub_function.h"
 
 
 
-void *process(void *arg)
+int process(void *arg)
 {
 	int *flag = (int*)arg;
 	
 	printf("thread 0x%x working on task %d\n ",(unsigned int)pthread_self(),*((int*)arg));
 	sleep(1);	//ะก---ด๓ะด
 	myprint("task %d is end", *flag);
-	return NULL;
+	return 0;
 }
 
 

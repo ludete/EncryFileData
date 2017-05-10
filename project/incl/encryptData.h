@@ -6,16 +6,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/err.h>
 
 #define FILENAMELENTH  1024
-
-#define myprint( x...) do {char bufMessagePut_Stdout_[1024];\
-        sprintf(bufMessagePut_Stdout_, x);\
-        fprintf(stdout, "%s [%d], [%s]\n", bufMessagePut_Stdout_,__LINE__, __FILE__ );\
-   }while (0)
-
-#define  MY_MIN(x, y)	((x) < (y) ? (x) : (y))
+typedef struct _encry_handle encryHandle_t;
 
 /*加密; 采用公钥
 *@param : str 加密数据地址
@@ -57,27 +53,36 @@ int encryptFileData(char *filePath, char *publicPathKey);
 */
 int decryptFileData(char *filePath, char *privatePathKey);
 
-/*判断指定文件是否存在
-*@param : filePath  指定文件路径
-*@retval: exist true,  absent false;
+/*get the certficate news 
+*@param : publicPathKey : 证书文件名
+*@retval: success 0; fail -1;
 */
-bool if_file_exist(const char *filePath);
+int get_cert_pubKey( EVP_PKEY **evpKey, BIO  **bioHandle, RSA  **pRsa, char *publicPathKey);
 
-
-/*自实现system 命令
-*@param : cmd_line 指定命令
-*@retval: success The cmd shell return value > 0; fail -1;
+/*get The private Key News
+*@param : pRsa :  私钥信息
+*@param : privatePathKey : 私钥文件名
+*@retval: success 0; fail -1;
 */
-int pox_system(const char *cmd_line); 
+int get_privateKey_new(RSA  **pRsa, char *privatePathKey);
 
-/*获取子串在母串中的位置
-*@param : full_data 	  母串数据地址
-*@param : full_data_len   母串数据长度
-*@param : substr		  子串数据
-*@retval: success find The location, fail NULL;
-*/
-char* memstr(char* full_data, int full_data_len, char* substr); 
+/*encry data  加密数据
+*@param : str 		 	 原始数据
+*@param : lenth 		 原始数据长度
+*@param : enData 		 加密数据
+*@param : pRsa 		 	 加密公钥信息
+*@retval: success 加密数据长度; fail -1;
+*/ 
+int encry_data(char *str, int lenth, char *enData, RSA *pRsa);
 
+/*decry data  解密数据
+*@param : str 		 	 原始数据
+*@param : lenth 		 原始数据长度
+*@param : enData 		 解密数据
+*@param : pRsa 		 	 解密私钥信息
+*@retval: success 解密数据长度; fail -1;
+*/ 
+int decry_data(char *str, int lenth, char *deData, RSA *pRsa);
 
 
 #ifdef __cplusplus

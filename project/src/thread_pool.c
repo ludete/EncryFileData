@@ -7,13 +7,15 @@
 #include <signal.h> 
 #include <errno.h> 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "thread_pool.h"
+#include "include_sub_function.h"
+
 
 #define DEFAULT_TIME 3 				/*10s检测一次*/ 
 #define MIN_WAIT_TASK_NUM 10			/*如果queue_size > MIN_WAIT_TASK_NUM 添加新的线程到线程池*/  
 #define DEFAULT_THREAD_VARY 3 		 	/*每次创建和销毁线程的个数*/ 
-
 
 
 

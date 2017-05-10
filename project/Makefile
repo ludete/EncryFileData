@@ -13,9 +13,10 @@ obj = $(patsubst %.c, %.o, $(src))
 
 encry_dec_data = encry_dec_data
 test = test_debug
+test_thread_pool = test_thread_pool
 
-target = $(encry_dec_data) $(test)
-
+#target = $(encry_dec_data) $(test) $(test_thread_pool)
+target =  $(test_thread_pool)
 ALL:$(target)
     
 #生成所有的.o文件
@@ -25,13 +26,17 @@ $(obj):%.o:%.c
 	
 	
 #encry_dec_data
-$(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o
+$(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o ./src/include_sub_function.o
 	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
 	
 #test
 $(test):./src/test.o
 	$(CC) $^ -o $@ $(CPPFLAGS)
+
 	
+#test_thread_pool
+$(test_thread_pool):./src/test_thread_pool.o  ./src/thread_pool.o ./src/include_sub_function.o
+	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  	
 	
 #clean指令
 

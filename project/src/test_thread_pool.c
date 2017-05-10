@@ -9,17 +9,18 @@
 #include <stdbool.h>
 
 #include "thread_pool.h"
+#include "include_sub_function.h"
 
 
 
-void *process(void *arg)
+int process(void *arg)
 {
-	int flag = (int)arg;
+	int *flag = (int*)arg;
 	
 	printf("thread 0x%x working on task %d\n ",(unsigned int)pthread_self(),*((int*)arg));
 	sleep(1);	//ะก---ด๓ะด
-	myprint("task %d is end", flag);
-	return NULL;
+	myprint("task %d is end", *flag);
+	return 0;
 }
 
 
@@ -41,10 +42,12 @@ int main()
 		threadpool_add(pool, process, (void *)&num[i]);
 	}
 
-	sleep(3);
-	myprint("------------- 1 ------------");
+	sleep(2);
+	printf("\n\n");
+	myprint(" !!!!!!!!! begin destroy() !!!!!!!!!!");
 	threadpool_destroy(pool);	
-	myprint("------------- 2 ------------");
+	myprint(" !!!!!!!!! end destroy() !!!!!!!!!!");
+
 
 	return 0;
 }

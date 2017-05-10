@@ -3,13 +3,8 @@
 
 typedef struct thread_pool_t threadpool_t;
 
-typedef void *(*task_func)(void *);
-
-
-#define myprint( x...) do {char bufMessagePut_Stdout_[1024];\
-        sprintf(bufMessagePut_Stdout_, x);\
-        fprintf(stdout, "%s [%d], [%s]\n", bufMessagePut_Stdout_,__LINE__, __FILE__ );\
-    }while (0) 
+//typedef void *(*task_func)(void *);
+typedef int (*task_func)(void *);
 
 
 /**

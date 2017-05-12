@@ -805,7 +805,8 @@ void decry_process(void *arg)
 {
     encryHandle_t *handle = (encryHandle_t *)arg;
 	FILE *srcFp = NULL, *desFp = NULL;
-	RSA *pRsa = (RSA *)handle->pRsa;
+	//RSA *pRsa = (RSA *)handle->pRsa;
+	char pRsa[256] = { 0 };	
 	char decryptData[DECRYMAXSIZE + 1] = { 0 };
 	int	 nread = 0, nwrite = 0;
 	int  nworkSize = 0;
@@ -813,7 +814,8 @@ void decry_process(void *arg)
 	char srcContent[DECRYMAXSIZE] = { 0 };
 	
 	printf("thread 0x%x working on \n ",(unsigned int)pthread_self());
-
+
+	memcpy(pRsa, handle->pRsa, 256);
 	//1. open The file
 	if((srcFp = fopen(handle->srcFile, "rb")) < 0)
 	{
@@ -837,7 +839,7 @@ void decry_process(void *arg)
 		myprint("Err : thread 0x%x working	func fseek()", (unsigned int)pthread_self());
 		goto End;
 	}
-
+	myprint("************* 01 *************");
 	//5. alloc The memory for encrypt Data
 	//decryptData = malloc(RSA_size(pRsa) + 1);
 	//memset(decryptData, 0, RSA_size(pRsa) + 1 );
@@ -846,11 +848,22 @@ void decry_process(void *arg)
 	while(nworkSize < handle->encrySize)
 	{
 		if((nread = fread(srcFp, 1, sizeof(srcContent) , srcFp)) < 0)						assert(0);	
-		if((deDataLenth = decry_data(srcContent, DECRYMAXSIZE, decryptData, pRsa)) < 0)					assert(0);
+		myprint("************* 02 *************");
+
+		if((deDataLenth = decry_data(srcContent, DECRYMAXSIZE, decryptData, (RSA*)pRsa)) < 0)					assert(0);
+		myprint("************* 03 *************");
+
 		if((nwrite = fwrite(decryptData, 1, deDataLenth, desFp)) < 0)							assert(0);    
+		myprint("************* 04 *************");
+
 		memset(srcContent, 0, sizeof(srcContent));   
+		myprint("************* 05 *************");
+
 		memset(decryptData, 0, DECRYMAXSIZE + 1);
+		myprint("************* 06 *************");
+
 		nworkSize += nread;
+			myprint("************* 02 *************");
 	}
 
 End:

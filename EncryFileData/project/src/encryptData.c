@@ -692,6 +692,8 @@ End:
 #endif
 
 
+
+
 /*
  *@param : threadNum  	工作线程数
  *@param : lowRoundNum	工作线程最低工作轮次
@@ -714,9 +716,9 @@ void dealwith_per_threadWork(char *filePath, char *decryFileName, int threadNum,
     //2.caculate The front And rear total Bytes
     if(threadNum == LIVETHRM)
     {	
-
         frontThreadTotalByte = lowRoundNum * readBaseNum * (LIVETHRM - 1) ;
         rearThreadTotalByte = fileSize - frontThreadTotalByte;
+		myprint("rearThreadTotalByte : %d", rearThreadTotalByte);
     }
     else
     {
@@ -833,7 +835,6 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
 		goto End;
 
 	}
- //   myprint("--------- 0 ------------");
 
 	
     //1. get The file encry round Number
@@ -843,7 +844,6 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
         ret = -1;
         goto End; 		
     }
-//    myprint("--------- 1 roundNum : %d ------------", roundNum);
 
     //2. get The thread Number for work to encry file
     if((threadNum = get_workThreadNum(roundNum, LIVETHRM, &lowRoundNum)) < 0)
@@ -852,7 +852,7 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
         ret = -1;
         goto End; 	
     }
-//    myprint("--------- 2 threadNum : %d, lowRoundNum : %d ------------", threadNum, lowRoundNum);
+   myprint("--------- 2 threadNum : %d, lowRoundNum : %d ------------", threadNum, lowRoundNum);
 
     //3. get The encryFileName and rsa public Key
     package_decry_file_name(filePath, decryFileName);
@@ -861,35 +861,27 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
         myprint("Err : func get_privateKey_new() "); 	  
         goto End;  
     }
-	
-   // myprint("--------- 3 decryFileName : %s, rsa size : %d -----------", decryFileName,  RSA_size(pRsa));
     g_pRsa = pRsa;
 	
-
     //4. deal with per-thread work
-    dealwith_per_threadWork(filePath, decryFileName, threadNum, lowRoundNum, DECRYMAXSIZE, ENCRYMAXSIZE);
- //   myprint("--------- 4 ------------");
-
-	 if(if_file_exist(decryFileName))
-	 {
-		 sprintf(cmdBuf, "rm %s", decryFileName);
-		 if((ret = pox_system(cmdBuf)) < 0)
-		 {
-			 myprint("Err : func pox_system()");
-			 goto End;
-		 }
-	 }
-
+    dealwith_per_threadWork(filePath, decryFileName, threadNum, lowRoundNum, DECRYMAXSIZE, DECRYMAXSIZE);
+ 
+	if(if_file_exist(decryFileName))
+	{
+	 	sprintf(cmdBuf, "rm %s", decryFileName);
+	 	if((ret = pox_system(cmdBuf)) < 0)
+	 	{
+		 	myprint("Err : func pox_system()");
+		 	goto End;
+	 	}
+	}
 
     //5. add working for Thread
     for(i = 0; i < threadNum; i++)
     {
         threadpool_add(pool, decry_process, (void *)i);
     }
-//    myprint("--------- 5 ------------");
 
-
-	//kill_locks();
 
 	for(i = 0; i < threadNum; i++)
 		sem_wait(&g_sem_notify_task_complete);
@@ -906,8 +898,76 @@ End:
     return ret;
 }
 
-#if 1
 void decry_process(void *arg)
+{
+    int  index = (int)arg;
+    char pRsa[256] = { 0 };	
+    int	 nread = 0, nwrite = 0;
+    int  nworkSize = 0;
+    int  deDataLenth = 0;
+    char srcContent[DECRYMAXSIZE] = { 0 };
+	FILE *srcFp = NULL, *decryFp = NULL;
+	int  begin, end;			  //定义时间开始和结束标志位  ;
+	begin=clock();//开始计时
+
+    memcpy(pRsa, g_pRsa, RSA_size(g_pRsa));
+
+    printf("\nthread 0x%x working on, decrySize : %d, rsaSize : %d, index : %d\n",(unsigned int)pthread_self(), 
+    		threadWorkHandle[index].encrySize, RSA_size((RSA*)pRsa), index);
+
+
+    //1. open The file
+    if((srcFp = fopen(threadWorkHandle[index].srcFile, "rb")) < 0)
+    {
+        myprint("Err : thread 0x%x working	func fopen()", (unsigned int)pthread_self());
+        goto End;
+    }
+    if((decryFp = fopen(threadWorkHandle[index].encryFile, "ab+")) < 0)
+    {
+        myprint("Err : thread 0x%x working	func fopen()", (unsigned int)pthread_self());
+        goto End;
+    }
+
+    //2. move file descriptor
+    if((fseek(srcFp, threadWorkHandle[index].readInitPosition, SEEK_SET)) == -1)
+    {
+        myprint("Err : thread 0x%x working	func fseek()", (unsigned int)pthread_self());
+        goto End;
+    }
+    if((fseek(decryFp, threadWorkHandle[index].writeInitPosition, SEEK_SET)) == -1)
+    {
+        myprint("Err : thread 0x%x working	func fseek()", (unsigned int)pthread_self());
+        goto End;
+    }
+
+	myprint("readInitPosition : %d, writeInitPosition : %d ", threadWorkHandle[index].readInitPosition, threadWorkHandle[index].writeInitPosition);
+
+    //3. encrypt Data from file; once 245 BYTE
+    while(nworkSize < threadWorkHandle[index].encrySize)
+    {
+        if((nread = fread(srcContent, 1, sizeof(srcContent) , srcFp)) < 0)						assert(0);	       		
+		if((nwrite = fwrite(srcContent, 1, nread, decryFp)) < 0)							assert(0);    
+        memset(srcContent, 0, DECRYMAXSIZE);   
+        nworkSize += nread;
+    }
+
+	sem_post(&g_sem_notify_task_complete);
+	end=clock();//结束计时	
+	printf("The operation time : %d\n", end-begin);//差为时间，单位毫秒  
+
+	
+End:
+    if(srcFp)   	fclose(srcFp);
+    if(srcFp)		
+    {      
+        fclose(decryFp);
+    }	
+    return;
+}
+
+
+#if 1
+void decry_process_decry(void *arg)
 {
     int  index = (int)arg;
     char pRsa[256] = { 0 };	
@@ -957,7 +1017,8 @@ void decry_process(void *arg)
     {
         if((nread = fread(srcContent, 1, sizeof(srcContent) , srcFp)) < 0)						assert(0);	
         if((deDataLenth = decry_data(srcContent, DECRYMAXSIZE, decryptData, (RSA*)pRsa)) < 0)					assert(0);  
-        if((nwrite = fwrite(decryptData, 1, deDataLenth, decryFp)) < 0)							assert(0);    
+		myprint("deDataLenth : %d", deDataLenth);
+		if((nwrite = fwrite(decryptData, 1, deDataLenth, decryFp)) < 0)							assert(0);    
         memset(srcContent, 0, DECRYMAXSIZE);   
         memset(decryptData, 0, DECRYMAXSIZE);
         nworkSize += nread;
@@ -972,7 +1033,7 @@ End:
     if(srcFp)   	fclose(srcFp);
     if(srcFp)		
     {
-        fflush(decryFp);
+        //fflush(decryFp);
         fclose(decryFp);
     }	
     return;

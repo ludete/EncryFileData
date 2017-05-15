@@ -132,7 +132,7 @@ int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum)
 	if(workThreadNum == liveThreadNum)
 	{
 		if(workThreadNum > 1)
-			*lowRoundNum = workRounds / (workThreadNum - 1);		
+			*lowRoundNum = workRounds / (workThreadNum );		
 		else
 			*lowRoundNum = workRounds;
 	}

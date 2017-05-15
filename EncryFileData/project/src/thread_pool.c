@@ -229,11 +229,13 @@ void *threadpool_thread(void * threadpool)
 
 		myprint("Thread : 0x%x start working", (unsigned int)pthread_self());
 		task.func(task.arg);		//执行回调任务
-
 		
 		pthread_mutex_lock(&(pool->thread_counter));
 		pool->busy_thr_num--;
 		pthread_mutex_unlock(&(pool->thread_counter));
+
+		//下行代码为测试修改, 完了之后立即删除
+		//pthread_exit(NULL);
 	}
 
 
@@ -251,6 +253,7 @@ void *adjust_thread(void * threadpool)
 	//线程池的工作 过程
 	while(!pool->shutdown)
 	{		
+		
 		sleep(DEFAULT_TIME);
 		
 		pthread_mutex_lock(&(pool->lock));
@@ -303,11 +306,12 @@ void *adjust_thread(void * threadpool)
 
 }
 
+
 int threadpool_destroy(threadpool_t *pool)
 {
 	int i = 0, ret = 0;
-	if(pool == NULL)
-		return -1;
+	if(pool == NULL)		return -1;
+		
 
 	//1. 修改句柄, 进行线程销毁
 	pool->shutdown = true;

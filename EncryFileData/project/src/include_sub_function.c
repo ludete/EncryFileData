@@ -114,35 +114,35 @@ End:
 
 
 int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum)
-{
-	int ret = 0;
+{ 
+	int workThreadNum = 0;
 	
 	if(workRounds < 0 || liveThreadNum < 0 || !lowRoundNum)
 	{
 		myprint("Err : workRounds : %d, liveThreadNum : %d ", workRounds, liveThreadNum);
-		ret = -1;
+		workThreadNum = -1;
 		goto End;
 	}
 
-	//1. get The Number of encryption
-#if 0
-	if( (workRounds % liveThreadNum) > 0 )
-		ret = workRounds / liveThreadNum + 1;
-	else
-		ret = workRounds / liveThreadNum;
-#endif
-	if(workRounds > liveThreadNum)
-		ret = liveThreadNum;
-	else
-		ret = workRounds;
+	//1. get The Number of encryption 
+	if(workRounds > liveThreadNum)					workThreadNum = liveThreadNum;		
+	else											workThreadNum = workRounds;		
 
 	//2. get The low round Number for per-thread
-	if(ret == liveThreadNum)
-		*lowRoundNum = workRounds / ret;
+	if(workThreadNum == liveThreadNum)
+	{
+		if(workThreadNum > 1)
+			*lowRoundNum = workRounds / (workThreadNum - 1);		
+		else
+			*lowRoundNum = workRounds;
+	}
 	else
+	{
 		*lowRoundNum = 0;
+ 	}
+		
 End:
 
-	return ret;
+	return workThreadNum;
 }
 

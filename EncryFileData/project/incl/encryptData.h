@@ -102,19 +102,39 @@ int get_residueSize_needThreadNum(char *filePath, int threadNum,
 */
 void package_encry_file_name(char *filePath, char *encFileName);
 
-
 /*组装 解密文件名
 *@param : filePath   		原始文件绝对路径或相对路径(或文件名)
 *@param : decFileName   	加密后文件绝对路径或相对路径(或文件名)
 */
 void package_decry_file_name(char *filePath, char *decFileName);
 
-threadpool_t *init_thread_pool();
+/*初始化, 全局变量, 工作线程池
+*@retval: success : 工作线程池 ; fail : NULL
+*/
+threadpool_t *init();
 
+/* 解密文件线程工作 方法
+*@param : arg : 参数句柄
+*/
 void decry_process(void *arg);
 
+/* 加密文件线程工作 方法
+*@param : arg : 参数句柄
+*/
+void encry_process(void *arg);
+
+/*多线程解密文件接口
+*@param : filePath 		 文件的绝对路径
+*@param : privatePathKey 指定解密数据私钥
+*@param : pool 			 工作线程池
+*@retval: success 0, fail -1;
+*/
 int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool);
 
+/*销毁程序: 工作线程池, 全局变量
+*@param : pool 			 工作线程池
+*@retval: success 0; fail -1;
+*/
 int destroy(threadpool_t *pool );
 
 #ifdef __cplusplus

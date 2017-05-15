@@ -54,7 +54,8 @@ int get_encryNum_fromFile(char *fileName, int baseSize);
 *@param : lowRoundNum       每个线程工作的最低轮次
 *@retval: success The Number of thread, fail -1;
 */
-int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum)
+int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum);
+
 
 
 #ifdef __cplusplus
@@ -62,5 +63,3 @@ int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum)
 #endif
 
 #endif
-
-

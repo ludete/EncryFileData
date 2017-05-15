@@ -4,7 +4,8 @@
 typedef struct thread_pool_t threadpool_t;
 
 //typedef void *(*task_func)(void *);
-typedef int (*task_func)(void *);
+
+typedef void (*task_func)(void *);
 
 
 /**

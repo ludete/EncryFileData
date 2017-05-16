@@ -1,0 +1,340 @@
+#include <stdio.h>  
+#include <stdlib.h>  
+#include <sys/types.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <string.h>
+#include <sys/select.h>
+#include <errno.h>
+
+#define FILESIZE 	256
+#define SCAN_TIME	5
+
+#define myprint( x...) do {char bufMessagePut_Stdout_[1024];\
+        sprintf(bufMessagePut_Stdout_, x);\
+        fprintf(stdout, "%s [%d], [%s]\n", bufMessagePut_Stdout_,__LINE__, __FILE__ );\
+    }while (0) 
+
+
+//select()  瀹炵幇瀹氭椂鍣?
+void timer_select(int seconds)
+{
+	struct timeval temp;
+ 	temp.tv_sec = seconds;
+    temp.tv_usec = 0;
+    int err = 0;
+	do{
+		err = select(0, NULL, NULL, NULL, (struct timeval *)&temp);
+	}while(err < 0 && errno == EINTR);
+
+}
+
+
+
+void find_directory_file()
+{
+	char *direct = NULL;
+	DIR *directory_pointer = NULL;
+  	struct dirent *entry = NULL;
+	struct stat  fileStat;
+	static bool flag = false;
+	int roundNum = 0, filyType = 0;
+	char *tableName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/C_16_01_04_10_16_10_030_B_L.jpg";
+	char *templateName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/downLoadTemplateNewestFromServer_17_05_08.pdf";
+	
+	struct FileModifyTime{
+		char fileName[FILESIZE];
+		time_t modifyTime;
+	};
+
+	struct FileList{
+		char fileName[FILESIZE];
+		struct FileList *next;
+	}start, *node, *tmpNode;
+
+	static struct FileModifyTime fileModifyTime[2];
+
+//	myprint("********** 0 ******************");
+	//1.获取目录
+	if((direct = getenv("SERverSourceDir")) == NULL)
+	{
+		myprint("Err : func getenv() key = SERverSourceDir");
+		assert(0);
+	}
+//	myprint("********** 1 ******************");
+	//2. 打开目录, 获取目录中的文件
+	if((directory_pointer = opendir(direct)) == NULL)
+	{
+		myprint("Err : func opendir() Dirpath : %s", direct);
+		assert(0);
+	}
+	else
+	{
+		//3. 获取目录中的文件
+		start.next = NULL;
+		node = &start;
+		while((entry = readdir(directory_pointer)))
+		{		
+			node->next = (struct FileList*)malloc(sizeof(struct FileList));
+			node = node->next;
+			memset(node->fileName, 0, FILESIZE);
+			sprintf(node->fileName, "%s%s", direct, entry->d_name);	
+			node->next = NULL;
+		}
+		closedir(directory_pointer);
+	}
+	
+
+	//4.遍历获取的目录下的文件, 获取它们的时间属性
+	node = start.next;
+	while(node)
+	{	
+		//4.1 去除'.'和'..'目录
+		if(strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/.") == 0 || strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/..") == 0)
+		{
+			node = node->next;
+			continue;
+		}
+			
+		//4.2 获取剩余文件属性
+		memset(&fileStat, 0, sizeof(struct stat));
+		if((stat(node->fileName, &fileStat)) < 0)
+		{
+			myprint("Err : func stat() filename : %s", node->fileName);
+			assert(0);
+		}
+
+		//4.3 初次打开该目录, 拷贝各文件的属性至缓存
+		if(!flag)
+		{			
+			fileModifyTime[roundNum].modifyTime = fileStat.st_atime;
+			strcpy(fileModifyTime[roundNum].fileName, node->fileName);
+	//		myprint("********** 6 ******************");
+	
+			if((strcmp(fileModifyTime[roundNum].fileName, templateName)) == 0)
+				printf("The template file have find 0 [%d],[%s]\n", __LINE__, __FILE__);								
+			else if((strcmp(fileModifyTime[roundNum].fileName, tableName)) == 0)
+				printf("The table file have find 1 [%d],[%s]\n", __LINE__, __FILE__);						
+	
+									
+		}
+		else		//非首次, 进行属性判断
+		{	
+//			myprint("********** 9 ******************");
+			
+			if((strlen(fileModifyTime[roundNum].fileName)) == 0 )
+			{
+		//		myprint("********** 10 ******************");
+				strcpy(fileModifyTime[roundNum].fileName, node->fileName);
+				fileModifyTime[roundNum].modifyTime = fileStat.st_atime;
+				if((strcmp(fileModifyTime[roundNum].fileName, templateName)) == 0)
+				{
+					filyType = 0;
+				}	
+				else if(strcmp(fileModifyTime[roundNum].fileName, tableName) == 0)
+				{
+					filyType = 1;		
+				}
+				else 
+				{
+					assert(0);
+				}
+				
+				if(filyType == 0)
+					printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);							
+				else if(filyType == 1)
+					printf("The table file have find 1 [%d],[%s]",  __LINE__, __FILE__);							
+			}
+			else
+			{
+		//		myprint("********** 11 ******************");
+				if((strcmp(fileModifyTime[roundNum].fileName, templateName)) == 0 && fileModifyTime[roundNum].modifyTime != fileStat.st_atime)				
+				{
+					filyType = 0;					
+				}
+				else if((strcmp(fileModifyTime[roundNum].fileName, tableName)) == 0 && fileModifyTime[roundNum].modifyTime != fileStat.st_atime)
+				{
+					filyType = 1;									
+				}
+				else
+				{
+					myprint("fileModifyTime[%d].fileName : %s",roundNum, fileModifyTime[roundNum].fileName );
+					goto End;
+				}
+				if(filyType == 0)
+					printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);							
+				else if(filyType == 1)
+					printf("The table file have find 1 [%d],[%s]",  __LINE__, __FILE__);			
+				fileModifyTime[roundNum].modifyTime = fileStat.st_atime;
+			}
+		
+		}			
+	End:			
+		roundNum++;
+		node = node->next;
+	
+	}
+	flag = true;
+	
+#if 1
+	node = start.next;
+	while(node)
+	{		
+		tmpNode = node;
+		node = node->next;
+		free(tmpNode);			
+	}
+#endif	
+	
+}
+
+
+
+
+void test_sacn_modify_fileTime()
+{
+	
+	while(1)
+	{
+		timer_select(SCAN_TIME);
+		printf("-----------======= 0 ======-------------\n");
+		find_directory_file();
+		printf("-----------======= 1 ======-------------\n");
+	}
+	
+}
+
+  
+int main(int argc, char* argv[])  
+{  
+
+  	test_sacn_modify_fileTime();
+    return 0;  
+} 
+
+void find_directory_file022()
+{
+	char *direct = NULL;
+	DIR *directory_pointer = NULL;
+  	struct dirent *entry = NULL;
+	struct stat  fileStat;
+	static bool flag = false;
+	int i = 0;
+	char *tableName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/C_16_01_04_10_16_10_030_B_L.jpg";
+	char *templateName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/downLoadTemplateNewestFromServer_17_05_08.pdf";
+	
+	struct FileModifyTime{
+		char fileName[FILESIZE];
+		time_t modifyTime;
+	};
+
+	struct FileList{
+		char fileName[FILESIZE];
+		struct FileList *next;
+	}start, *node, *tmpNode;
+
+	static struct FileModifyTime fileModifyTime[2];
+	memset(fileModifyTime, 0, 2 * sizeof( struct FileModifyTime));
+	
+//	myprint("********** 0 ******************");
+	//1.获取目录
+	if((direct = getenv("SERverSourceDir")) == NULL)
+	{
+		myprint("Err : func getenv() key = SERverSourceDir");
+		assert(0);
+	}
+//	myprint("********** direct : %s ******************", direct);
+	//2. 打开目录, 获取目录中的文件
+	if((directory_pointer = opendir(direct)) == NULL)
+	{
+		myprint("Err : func opendir() Dirpath : %s", direct);
+		assert(0);
+	}
+	else
+	{
+	//	myprint("********** 2 ******************");
+		//3. 获取目录中的文件
+		start.next = NULL;
+		node = &start;
+		while((entry = readdir(directory_pointer)))
+		{
+			node->next = (struct FileList*)malloc(sizeof(struct FileList));
+			node = node->next;
+			memset(node->fileName, 0, FILESIZE);
+			sprintf(node->fileName, "%s%s", direct, entry->d_name);			
+			node->next = NULL;
+		}
+		closedir(directory_pointer);
+	}
+	
+	//4.遍历获取的目录下的文件, 获取它们的时间属性
+	node = start.next;
+	//myprint("********** 4 ******************");
+	while(node)
+	{	
+		//4.1 去除'.'和'..'目录
+		if(strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/.") == 0 || strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/..") == 0)
+		{
+			node = node->next;
+			continue;
+		}
+				
+		//4.2 获取剩余文件属性
+		memset(&fileStat, 0, sizeof(struct stat));
+		if((stat(node->fileName, &fileStat)) < 0)
+		{
+			myprint("Err : func stat() filename : %s, err : %s", node->fileName, strerror(errno));			
+			assert(0);
+		}
+
+		//4.3 初次打开该目录, 拷贝各文件的属性至缓存
+		if(!flag)
+		{			
+			fileModifyTime[i].modifyTime = fileStat.st_mtime;
+			strcpy(fileModifyTime[i].fileName, node->fileName);			
+					
+			if((strcmp(fileModifyTime[i].fileName, templateName)) == 0)
+				printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);			
+			else if((strcmp(fileModifyTime[i].fileName, tableName)) == 0)
+				printf("The table file have find 1 [%d],[%s]", __LINE__, __FILE__);											
+			
+			if(i == 1)			flag = true;	
+			myprint("********** 8******************");			
+		}
+		else		//非首次, 进行属性判断
+		{						
+			if((strcmp(fileModifyTime[i].fileName, templateName)) == 0 && (fileModifyTime[i].modifyTime != fileStat.st_mtime))				
+			{				
+				printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);				
+				fileModifyTime[i].modifyTime = fileStat.st_mtime;
+			}
+			else if((strcmp(fileModifyTime[i].fileName, tableName)) == 0 && (fileModifyTime[i].modifyTime != fileStat.st_mtime))
+			{					
+				printf("The table file have find 1 [%d],[%s]", __LINE__, __FILE__);
+				fileModifyTime[i].modifyTime = fileStat.st_mtime;
+			}
+			else
+			{
+				myprint("********** 12 ******************");
+				myprint("fileModifyTime[%d].fileName : %s", i, fileModifyTime[i].fileName);
+			}	
+		}			
+		node = node->next;			
+		i++;
+
+	}
+	flag = true;
+	node = start.next;
+	while(node)
+	{
+		tmpNode = node;
+		node = node->next;
+		free(tmpNode);			
+	}
+	
+	
+}
+

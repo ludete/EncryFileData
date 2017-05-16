@@ -11,8 +11,8 @@
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/types.h>
-   #include <sys/stat.h>
-   #include <fcntl.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "encryptData.h"
 #include "include_sub_function.h"
@@ -31,6 +31,8 @@ sem_t  g_sem_notify_task_complete;
 char **g_cache_memory = NULL;
 pthread_mutex_t g_muetx_lock = PTHREAD_MUTEX_INITIALIZER;
 
+
+int g_fd = 0;
 
 struct _encry_handle{
 
@@ -789,7 +791,7 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
     char decryFileName[FILENAMELENTH] = { 0 };
     int i = 0, begin, end;			//定义时间开始和结束标志位  ;
 	char cmdBuf[FILENAMELENTH] = { 0 };
-	int  fd = 0;
+//	int  fd = 0;
 	begin=clock();//开始计时
 
     if(!filePath || !privatePathKey)
@@ -835,7 +837,7 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
 	
     //4. deal with per-thread work
     dealwith_per_threadWork(filePath, decryFileName, threadNum, lowRoundNum, DECRYMAXSIZE, DECRYMAXSIZE);
- #if 0
+
 	if(if_file_exist(decryFileName))
 	{
 	 	sprintf(cmdBuf, "rm %s", decryFileName);
@@ -845,28 +847,28 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
 		 	goto End;
 	 	}
 	}
-
-	if((fd = open(decryFileName,  O_CREAT)) < 0)
+	
+#if 1
+	if((g_fd = open(decryFileName,  O_WRONLY | O_APPEND | O_CREAT, 0777 )) < 0)
 	{
-		myprint("Err : func open()");
+		myprint("Err : thread 0x%x working	func fopen()", (unsigned int)pthread_self());
 		goto End;
 	}
-	else
-	{
-		close(fd);
-		sleep(1);
-	}
-	#endif
+#endif
+	
     //5. add working for Thread
     for(i = 0; i < threadNum; i++)
     {
         threadpool_add(pool, decry_process, (void *)i);
     }
 
-
+	//6. wait The child working OK
 	for(i = 0; i < threadNum; i++)
 		sem_wait(&g_sem_notify_task_complete);
 
+	if(g_fd > 0)	close(g_fd);		
+
+	//7. caculate Time for program runing 
 	end=clock();//结束计时  
     printf("The operation time : %d\n", end-begin);//差为时间，单位毫秒  
 End:	
@@ -881,37 +883,65 @@ End:
 
 void write_file(int fd, char *srcContent, int Lenth, int position, int index)
 {
-	int ret = 0;
-//	pthread_mutex_lock(&g_muetx_lock);
-	#if 0
-    if((fseek(fp, threadWorkHandle[index].writeInitPosition + position, SEEK_SET)) == -1)
-    {
-        myprint("Err : thread 0x%x working	func fseek()", (unsigned int)pthread_self());
-       	return;
-    }
 
-	#endif
-	if((lseek(fd, threadWorkHandle[index].writeInitPosition + position, SEEK_SET)) == -1)
-	{
-		myprint("Err : func lseek()");
-		assert(0);
-	}
+
 	if((flock(fd, LOCK_EX)) < 0)
 	{
 		myprint("Err : func flock()");
 		assert(0);
 	}
-	if((write( fd, srcContent, Lenth)) < 0)
-	//if(( write(srcContent, 1, Lenth, fp)) < 0)			assert(0);
+
+	if((lseek(fd, threadWorkHandle[index].writeInitPosition + position, SEEK_SET)) == -1)
+	{
+		myprint("Err : func lseek()");
+		assert(0);
+	}
+
+	if((write(fd, srcContent, Lenth)) < 0)
+	{		
+		myprint("Err : func write()");
+		assert(0);
+	}
 
 	if((flock(fd, LOCK_UN)) < 0)
 	{
 		myprint("Err : func flock()");
 		assert(0);
 	}
-	//pthread_mutex_unlock(&g_muetx_lock);
+
 
 }
+
+
+void write_file_fp(FILE* fp, char *srcContent, int Lenth, int position, int index)
+{
+	int nwrite = 0, len = 0;
+	pthread_mutex_lock(&g_muetx_lock);
+
+	printf("---------- 1 -----------\n");
+	if((fseek(fp, threadWorkHandle[index].writeInitPosition + position, SEEK_SET)) == -1)
+	{
+		myprint("Err : func lseek()");
+		assert(0);
+	}
+	while(nwrite < Lenth)
+	{
+		printf("---------- 2 -----------\n");
+		if((len = fwrite( srcContent + nwrite, 1, Lenth - nwrite, fp)) < 0)
+		{		
+			myprint("Err : func fwrite()");
+			assert(0);
+		}		
+		nwrite += len;
+	}
+	printf("nwrite : %d \n", nwrite);
+	fflush(fp);
+
+	pthread_mutex_unlock(&g_muetx_lock);
+
+
+}
+
 
 void decry_process(void *arg)
 {
@@ -920,7 +950,7 @@ void decry_process(void *arg)
     int	 nread = 0, nwrite = 0;
 	int  cacheSize = 0, position = 0;
     int  nworkSize = 0;
-    int  deDataLenth = 0;
+   // int  deDataLenth = 0;
     char srcContent[DECRYMAXSIZE] = { 0 };
 	FILE *srcFp = NULL, *decryFp = NULL;
 	char *tmp = g_cache_memory[index];
@@ -939,18 +969,20 @@ void decry_process(void *arg)
         myprint("Err : thread 0x%x working	func fopen()", (unsigned int)pthread_self());
         goto End;
     }
-	#if 0
-    if((decryFp = fopen(threadWorkHandle[index].encryFile, "ab+")) < 0)
+#if 0
+    if((decryFp = fopen(threadWorkHandle[index].encryFile, "ab")) < 0)
     {
         myprint("Err : thread 0x%x working	func fopen()", (unsigned int)pthread_self());
         goto End;
     }
-	#endif
-	if((fd = open(threadWorkHandle[index].encryFile, O_WRONLY | O_APPEND  )) < 0)
+#endif
+#if 0
+	if((fd = open(threadWorkHandle[index].encryFile,  O_WRONLY | O_APPEND | O_CREAT, 0777 )) < 0)
 	{
 		myprint("Err : thread 0x%x working	func fopen()", (unsigned int)pthread_self());
 		goto End;
 	}
+#endif
 
     //2. move file descriptor
     if((fseek(srcFp, threadWorkHandle[index].readInitPosition, SEEK_SET)) == -1)
@@ -958,8 +990,6 @@ void decry_process(void *arg)
         myprint("Err : thread 0x%x working	func fseek()", (unsigned int)pthread_self());
         goto End;
     }
-
-
 	myprint("readInitPosition : %d, writeInitPosition : %d ", threadWorkHandle[index].readInitPosition, threadWorkHandle[index].writeInitPosition);
 
     //3. encrypt Data from file; once 245 BYTE
@@ -967,11 +997,11 @@ void decry_process(void *arg)
     {
         if((nread = fread(srcContent, 1, sizeof(srcContent) , srcFp)) < 0)				assert(0);
 		memcpy(tmp + cacheSize, srcContent, nread);
-		 cacheSize += nread;
-		 position += cacheSize;
+		cacheSize += nread;
+		position += cacheSize;
 		if(cacheSize == CACHEDECRYSIZE)		
 		{
-			write_file(fd, g_cache_memory[index], cacheSize, position, index);
+			write_file(g_fd, g_cache_memory[index], cacheSize, position, index);
 			cacheSize = 0;
 		}							    
         memset(srcContent, 0, DECRYMAXSIZE);   
@@ -979,8 +1009,8 @@ void decry_process(void *arg)
     }
 	printf("\n\n");
 	myprint("cacheSize : %d",cacheSize);
-	if(cacheSize < CACHEDECRYSIZE)
-		write_file(fd, g_cache_memory[index], cacheSize, position, index);
+	if(cacheSize <= CACHEDECRYSIZE)
+		write_file(g_fd, g_cache_memory[index], cacheSize, position, index);
 
 	sem_post(&g_sem_notify_task_complete);
 	end=clock();//结束计时	

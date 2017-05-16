@@ -16,8 +16,8 @@ test = test_debug
 test_thread_pool = test_thread_pool
 
 
-#target = $(encry_dec_data) $(test) $(test_thread_pool)
-target =  $(encry_dec_data)
+#target = $(encry_dec_data) $(test_thread_pool)
+target =  $(encry_dec_data)	$(test) 
 
 ALL:$(target)
     
@@ -33,7 +33,7 @@ $(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o ./src/include_sub_
 	
 #test
 $(test):./src/test.o
-	$(CC) $^ -o $@ $(CPPFLAGS)
+	$(CC) $^ -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS)  
 
 	
 #test_thread_pool

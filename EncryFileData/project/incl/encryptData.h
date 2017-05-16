@@ -9,6 +9,7 @@ extern "C" {
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include "thread_pool.h"
 
 #define FILENAMELENTH  1024
 typedef struct _encry_handle encryHandle_t;
@@ -57,7 +58,7 @@ int decryptFileData(char *filePath, char *privatePathKey);
 *@param : publicPathKey : 证书文件名
 *@retval: success 0; fail -1;
 */
-int get_cert_pubKey( EVP_PKEY **evpKey, BIO  **bioHandle, RSA  **pRsa, char *publicPathKey);
+int get_cert_pubKey( RSA  **pRsa, char *publicPathKey);
 
 /*get The private Key News
 *@param : pRsa :  私钥信息
@@ -84,6 +85,57 @@ int encry_data(char *str, int lenth, char *enData, RSA *pRsa);
 */ 
 int decry_data(char *str, int lenth, char *deData, RSA *pRsa);
 
+/*获取剩余文件的 加密所需的最小线程数(即剩余文件的最小工作轮次) 以及 (所有线程工作量)最后剩余的文件大小
+*@param : filePath 		 	 文件路径
+*@param : threadNum 		 该文件所需工作线程的数量
+*@param : lowRoundNum 		 所需线程的最小工作轮次
+*@param : baseSize 		 	 文件计算的分割基数
+*@param : size				 最后剩余文件大小
+*@retval: success 解密数据长度; fail -1;
+*/
+int get_residueSize_needThreadNum(char *filePath, int threadNum, 
+	int lowRoundNum, int baseSize, int *size);
+
+/*拼装加密后的文件名
+*@param : filePath   		原始文件绝对路径或相对路径(或文件名)
+*@param : encFileName   	加密后文件绝对路径或相对路径(或文件名)
+*/
+void package_encry_file_name(char *filePath, char *encFileName);
+
+/*组装 解密文件名
+*@param : filePath   		原始文件绝对路径或相对路径(或文件名)
+*@param : decFileName   	加密后文件绝对路径或相对路径(或文件名)
+*/
+void package_decry_file_name(char *filePath, char *decFileName);
+
+/*初始化, 全局变量, 工作线程池
+*@retval: success : 工作线程池 ; fail : NULL
+*/
+threadpool_t *init();
+
+/* 解密文件线程工作 方法
+*@param : arg : 参数句柄
+*/
+void decry_process(void *arg);
+
+/* 加密文件线程工作 方法
+*@param : arg : 参数句柄
+*/
+void encry_process(void *arg);
+
+/*多线程解密文件接口
+*@param : filePath 		 文件的绝对路径
+*@param : privatePathKey 指定解密数据私钥
+*@param : pool 			 工作线程池
+*@retval: success 0, fail -1;
+*/
+int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool);
+
+/*销毁程序: 工作线程池, 全局变量
+*@param : pool 			 工作线程池
+*@retval: success 0; fail -1;
+*/
+int destroy(threadpool_t *pool );
 
 #ifdef __cplusplus
 }

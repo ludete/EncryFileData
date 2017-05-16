@@ -1,8 +1,10 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <unistd.h>
 #include "encryptData.h"
+#include "include_sub_function.h"
 
 //#define PRIVATEKEY 	"/home/yyx/MyEncryProject/EncryFileData/hostClientCert/client-key.pem"
 //#define PUBLICKEY 	"/home/yyx/MyEncryProject/EncryFileData/hostClientCert/client-cert.pem"
@@ -54,7 +56,10 @@ End:
 void test_encryptFile()
 {
 	int ret = 0;
-	if((ret = encryptFileData("C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);
+	//if((ret = encryptFileData("C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);
+	if((ret = encryptFileData("hello.mp4", PUBLICKEY)) < 0)		assert(0);
+
+
 //	if((ret = encryptFileData("/home/yyx/MyEncryProject/EncryFileData/project/C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);	
 }
 
@@ -65,13 +70,39 @@ void test_decryptFile()
 	if((ret = decryptFileData("C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY)) < 0)		assert(0);
 }
 
+void test_multiDecryFile()
+{
+	threadpool_t *pool = NULL;
+	
+	pool = init();
+	if((multiDecryFile("C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY, pool)) < 0)			assert(0); 
+	//if((multiDecryFile("hello_ENCRYPT.mp4", PRIVATEKEY, pool)) < 0)			assert(0); 
+
+	//sleep(12);
+	destroy(pool);
+
+}
+
+void test_lockNum()
+{
+	threadpool_t *pool = NULL;
+	pool = init();
+
+	myprint("The Num : %d", test_pthread_mutex_Num());
+	destroy(pool);
+
+}
+
 int main()
 {
 	int ret = 0;
 
-	test_encryptFile();
-	test_decryptFile();
+	//test_encryptFile();
+	//test_decryptFile();
+	test_multiDecryFile();
 	//test_content();	
-	
+
+	//test_lockNum();
+
 	return ret;
 }

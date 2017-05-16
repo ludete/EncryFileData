@@ -15,8 +15,10 @@ encry_dec_data = encry_dec_data
 test = test_debug
 test_thread_pool = test_thread_pool
 
+
 #target = $(encry_dec_data) $(test) $(test_thread_pool)
-target =  $(test_thread_pool)
+target =  $(encry_dec_data)
+
 ALL:$(target)
     
 #生成所有的.o文件
@@ -26,7 +28,7 @@ $(obj):%.o:%.c
 	
 	
 #encry_dec_data
-$(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o ./src/include_sub_function.o
+$(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o ./src/include_sub_function.o ./src/thread_pool.o
 	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
 	
 #test

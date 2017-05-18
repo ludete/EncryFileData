@@ -152,6 +152,10 @@ int encry_file_AES(char *file, char *passwd);
 int decry_file_AES(char *file, char *passWdSrc);
 
 
+int mix_RSA_AES_decryFile(char *file, char *privatePathKey);
+
+int mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey);
+
 #ifdef __cplusplus
 }
 #endif

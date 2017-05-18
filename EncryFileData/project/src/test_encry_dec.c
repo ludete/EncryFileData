@@ -108,7 +108,7 @@ void test_AES_encryfile()
 void test_AES_decryfile()
 {
 	char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg";
-	char *key = "125454484402020";
+	char *key = "1254544844020202";
 	
 	if((decry_file_AES(file, key)) < 0)
 	{
@@ -116,6 +116,31 @@ void test_AES_decryfile()
 	}	
 
 }
+
+void test_AES_RSA_decryfile()
+{
+	char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT_RSA_AES.jpg";
+	
+	if((mix_RSA_AES_decryFile(file, PRIVATEKEY)) < 0)
+	{
+		myprint("Err : func decry_file_AES()");
+	}	
+
+
+}
+
+void test_AES_RSA_encryfile()
+{
+	char *file = "C_16_01_04_10_16_10_030_B_L.jpg";
+	char *key = "1254544844020202";
+	
+	if((mix_RSA_AES_encryFile(file, key, PUBLICKEY)) < 0)
+	{
+		myprint("Err : func mix_RSA_AES_encryFile()");
+	}
+
+}
+
 
 int main()
 {
@@ -126,8 +151,12 @@ int main()
 	//test_multiDecryFile();
 	//test_content();	
 	//test_lockNum();
-	test_AES_encryfile();
-	test_AES_decryfile();
+	//test_AES_encryfile();
+	//test_AES_decryfile();
+	test_AES_RSA_encryfile();
+	test_AES_RSA_decryfile();
+
+
 
 	return ret;
 }

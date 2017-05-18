@@ -21,6 +21,8 @@
 
 #define ENCRYFLAG  "_ENCRYPT"
 #define DECRYFLAG  "_DECRYPT"
+#define MUTILENCYR "_ENCRYPT_RSA_AES"
+#define MUTILDECYR "_DECRYPT_RSA_AES"
 #define ENCRYMAXSIZE  245
 #define DECRYMAXSIZE  256
 #define LIVETHRM    3
@@ -1155,10 +1157,6 @@ void decry_process_decry(void *arg)
 
     memcpy(pRsa, g_pRsa, RSA_size(g_pRsa));
 
-//    printf("\nthread 0x%x working on, decrySize : %d, rsaSize : %d, index : %d\n",(unsigned int)pthread_self(), 
-//    		g_threadWorkHandle[index].encrySize, RSA_size((RSA*)pRsa), index);
-
-
     //1. open The file
     if((srcFp = fopen(g_threadWorkHandle[index].srcFile, "rb")) < 0)
     {
@@ -1465,6 +1463,124 @@ void package_encry_file_name(char *filePath, char *encFileName)
 }
 
 
+void package_AES_RSA_encry_file_name(char *filePath, char *encFileName)
+{
+    char *tmp = NULL;
+    char suffix[20] = { 0 };
+    char path[FILENAMELENTH] = { 0 };
+    char name[FILENAMELENTH] = { 0 };
+
+    //2. get The SrcFile suffix
+    if((tmp = strrchr(filePath, '.')))			
+    {
+        memcpy(suffix, tmp, strlen(tmp));
+    }
+
+    //3. get The path 
+#ifdef _OS_WIN_
+    if((tmp = strrchr(filePath, '\\')))		
+    {
+        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
+        strcat(path, "\\");
+    }
+#endif
+
+#ifdef	_OS_LINUX_
+    if((tmp = strrchr(filePath, '/')))		
+    {
+        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
+        strcat(path, "/");
+    }
+#endif
+
+    //4. get The FILE name 
+    if(tmp == NULL)
+    {
+        memcpy(name, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
+    }
+    else
+    {
+        memcpy(name, tmp + 1, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix) - 1));
+    }
+
+    //5. package The decryFileName
+#ifdef  _OS_WIN_
+    sprintf(encFileName, "%s%s%s%s", path, name, MUTILENCYR, suffix);
+#endif
+#ifdef  _OS_LINUX_
+    sprintf(encFileName, "%s%s%s%s", path, name, MUTILENCYR, suffix);
+#endif
+
+
+}
+
+
+
+//组装 解密文件名
+void package_AES_RSA_decry_file_name(char *filePath, char *decFileName)
+{
+    char *tmp = NULL;
+    char suffix[20] = { 0 };
+    char path[FILENAMELENTH] = { 0 };
+    char name[FILENAMELENTH] = { 0 };
+    char tmpname[FILENAMELENTH] = { 0 };
+
+    //2. get The SrcFile suffix
+    if((tmp = strrchr(filePath, '.')))			
+    {
+        memcpy(suffix, tmp, strlen(tmp));
+    }
+
+    //3. get The path 
+#ifdef _OS_WIN_
+    if((tmp = strrchr(filePath, '\\')))		
+    {
+        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
+        strcat(path, "\\");
+    }
+#endif
+
+#ifdef  _OS_LINUX_
+
+    if((tmp = strrchr(filePath, '/')))		
+    {
+        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
+        strcat(path, "/");
+    }
+#endif
+
+    //4. get The FILE name 
+    if(tmp == NULL)
+    {
+        memcpy(tmpname, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
+    }
+    else
+    {
+        memcpy(tmpname, tmp, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix)));
+    }
+
+    if((tmp = memstr(tmpname, strlen(tmpname), MUTILENCYR)))
+    {
+        memcpy(name, tmpname, strlen(tmpname) - strlen(tmp));
+    }
+    else
+    {
+        myprint("No find encrypt File, The name : %s", tmpname);
+        return;
+    }
+
+    //5. package The decryFileName
+#ifdef	_OS_WIN_
+    sprintf(decFileName, "%s%s%s%s", path, name, MUTILDECYR, suffix);
+#endif
+#ifdef	_OS_LINUX_
+    sprintf(decFileName, "%s%s%s%s", path, name, MUTILDECYR, suffix);
+#endif
+
+
+}
+
+
 int test_pthread_mutex_Num()
 {
     int ret = 0;
@@ -1475,20 +1591,16 @@ int test_pthread_mutex_Num()
 
 
 
+
 int encry_file_AES(char *file, char *passWdSrc)
 {
 	int ret = 0;
 	AES_KEY aes_key;				//OpenSSL格式的秘钥
-	int padding = 0;				//文件加密所需补丁的大小	
-	int fileSize = 0;				//文件的大小
-	int encryLenth = 0;				//加密数据的长度
-	int i = 0;
 	char encryName[FILENAMELENTH] = { 0 }, cmdBuf[FILENAMELENTH] = { 0 };
 	FILE *srcFp = NULL, *decryFp = NULL;
 	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
 	int nread = 0, passLen = 0;
 	char passwd[33] = { 0 };
-	unsigned char iv[AES_BLOCK_SIZE];         // init vector  
 
 	
 	if(!file || !passWdSrc)
@@ -1557,26 +1669,8 @@ int encry_file_AES(char *file, char *passWdSrc)
 			goto End;
 		}
 	}
-	printf("----------- 2 -------------\n");
-	//3.获取原始文件大小
-	if((fileSize = get_file_size(file)) < 0)
-	{
-		myprint("Err : func get_file_size()"); 
-		ret = -1;
-		goto End;
-	}
-	printf("----------- 3 -------------\n");
-
-	//4.获取补丁大小;  AES_BLOCK_SIZE : 加密的数据区块大小(算法规定), 16字节
-	if(fileSize % AES_BLOCK_SIZE > 0)
-	{
-		padding = AES_BLOCK_SIZE - fileSize % AES_BLOCK_SIZE; 
-	}
-	printf("----------- 4 -------------\n");
 
 	//5. 计算加密的总长度, 设置OpenSSL格式的秘钥
-	//encryLenth = padding + fileSize;
-	encryLenth = fileSize;
     if(AES_set_encrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
     {
         myprint("Err : func AES_set_encrypt_key(),fileName : %s",file); 
@@ -1584,11 +1678,6 @@ int encry_file_AES(char *file, char *passWdSrc)
 		goto End;
 		assert(0);
     }
-	// Set encryption key  
-    for (i=0; i< AES_BLOCK_SIZE; ++i) {  
-        iv[i] = i;  
-    }
-	printf("----------- 5 -------------\n");
 
 	//6. open The file
     if((srcFp = fopen(file, "rb")) == NULL)
@@ -1598,7 +1687,6 @@ int encry_file_AES(char *file, char *passWdSrc)
 		goto End;
 		assert(0);
 	}  	
-	printf("----------- 6 -------------\n");
 	if((decryFp = fopen(encryName, "wb")) == NULL)
 	{
 		myprint("Err : func fopen(), fileName : %s",encryName); 
@@ -1606,12 +1694,11 @@ int encry_file_AES(char *file, char *passWdSrc)
 		goto End;
 		assert(0);
 	} 
-	printf("----------- 7 -------------\n");
+
 
 	//7.encry file Data	   	   
 	while(!feof(srcFp))
-	{
-	
+	{	
 		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
 		{
 			myprint("Err : func fread(), fileName : %s",file); 
@@ -1619,12 +1706,6 @@ int encry_file_AES(char *file, char *passWdSrc)
 			goto End;
 			assert(0);
 		}
-	
-		while((i == encryLenth/AES_BLOCK_SIZE -1) && padding > 0)
-		{
-			srcData[nread++] = '\0';			
-			padding--;
-		}	
    		
 		AES_encrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
 		
@@ -1635,6 +1716,8 @@ int encry_file_AES(char *file, char *passWdSrc)
 			goto End;
 			assert(0);
 		}
+		memset(outData, 0,AES_BLOCK_SIZE );
+		memset(srcData, 0,AES_BLOCK_SIZE );
 	}
 	
 End:
@@ -1644,187 +1727,17 @@ End:
 	
 	return ret;		
 }
-
-
-int encry_file_AES_no_retval(char *file, char *passWdSrc)
-{
-	int ret = 0;
-	AES_KEY aes_key;				//OpenSSL格式的秘钥
-	int padding = 0;				//文件加密所需补丁的大小	
-	int fileSize = 0;				//文件的大小
-	int encryLenth = 0;				//加密数据的长度
-	int i = 0;
-	char encryName[FILENAMELENTH] = { 0 }, cmdBuf[FILENAMELENTH] = { 0 };
-	FILE *srcFp = NULL, *decryFp = NULL;
-	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
-	int nread = 0, passLen = 0;
-	char passwd[33] = { 0 };
-	
-	if(!file || !passWdSrc)
-	{
-		myprint("Err : file : %p, passwd : %p", file, passWdSrc);
-		return ret = -1;
-	}
-
-	//0. 判断原始文件是否存在
-	if(!if_file_exist(file))
-	{
-		myprint("Err : file : %s is not exist", file); 
-		ret = -1;
-		goto End;
-	}
-
-	//1. 进行用户秘钥的配置(输入最大为32字节), 16, 24, 32字节
-	passLen = strlen(passWdSrc);
-	
-	if(passLen == 16 || passLen == 24 || passLen == 32)
-	{
-		myprint("passwd OK");		
-	}
-	else if(passLen < 16)
-	{
-		strcpy(passwd, passWdSrc);
-		while(passLen < 16)
-		{
-			passwd[passLen++] = 49;
-		}		
-	}
-	else if(passLen < 24)
-	{
-		strcpy(passwd, passWdSrc);
-		while(passLen < 24)
-		{
-			passwd[passLen++] = 49;
-		}
-	}
-	else if(passLen < 32)
-	{
-		strcpy(passwd, passWdSrc);
-		while(passLen < 32)
-		{
-			passwd[passLen++] = 49;
-		}
-	}
-	else
-	{
-		myprint("Err : The passwd Lenth is too large %d > 32", strlen(passwd)); 
-		ret = -1;
-		goto End;
-	}
-		
-	
-	//2.拼装加密后的文件名
-	package_encry_file_name(file, encryName);
-	myprint("encFileName : %s", encryName);
-	printf("----------- 1 -------------\n");
-	if(if_file_exist(encryName))
-	{
-		sprintf(cmdBuf, "rm %s", encryName);
-		if((ret = pox_system(cmdBuf)) < 0)
-		{
-			myprint("Err : func pox_system()");
-			goto End;
-		}
-	}
-	printf("----------- 2 -------------\n");
-	//3.获取原始文件大小
-	if((fileSize = get_file_size(file)) < 0)
-	{
-		myprint("Err : func get_file_size()"); 
-		ret = -1;
-		goto End;
-	}
-	printf("----------- 3 -------------\n");
-
-	//4.获取补丁大小;  AES_BLOCK_SIZE : 加密的数据区块大小(算法规定), 16字节
-	if(fileSize % AES_BLOCK_SIZE > 0)
-	{
-		padding = AES_BLOCK_SIZE - fileSize % AES_BLOCK_SIZE; 
-	}
-	printf("----------- 4 -------------\n");
-
-	//5. 计算加密的总长度, 设置OpenSSL格式的秘钥
-	encryLenth = padding + fileSize;
-    if(AES_set_encrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
-    {
-        myprint("Err : func AES_set_encrypt_key(),fileName : %s",file); 
-		ret = -1;
-		goto End;
-		assert(0);
-    }
-	printf("----------- 5 -------------\n");
-
-	//6. open The file
-    if((srcFp = fopen(file, "rb")) == NULL)
-	{
-		myprint("Err : func fopen(),fileName : %s",file); 
-		ret = -1;
-		goto End;
-		assert(0);
-	}  	
-	printf("----------- 6 -------------\n");
-	if((decryFp = fopen(encryName, "wb")) == NULL)
-	{
-		myprint("Err : func fopen(), fileName : %s",encryName); 
-		ret = -1;
-		goto End;
-		assert(0);
-	} 
-	printf("----------- 7 -------------\n");
-
-	//7.encry file Data	   	   
-	for(i = 0; i < encryLenth/AES_BLOCK_SIZE; i++ )
-	{
-		//printf("----------- 71 -------------\n");
-		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
-		{
-			myprint("Err : func fread(), fileName : %s",file); 
-			ret = -1;
-			goto End;
-			assert(0);
-		}
-		//printf("----------- 72 -------------\n");
-		while((i == encryLenth/AES_BLOCK_SIZE -1) && padding > 0)
-		{
-			srcData[nread++] = '\0';			
-			padding--;
-		}
-		//printf("----------- 8 -------------\n");
-		AES_encrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
-		//printf("----------- 9 -------------\n");
-		if((fwrite(outData, 1, AES_BLOCK_SIZE, decryFp)) < 0)
-		{
-			myprint("Err : func fwrite()"); 
-			ret = -1;
-			goto End;
-			assert(0);
-		}
-	}
-	
-End:
-
-	if(decryFp)			fclose(decryFp);
-	if(srcFp)			fclose(srcFp);
-	
-	return ret;		
-}
-
-
 
 
 
 int decry_file_AES(char *file, char *passWdSrc)
 {
 	int	ret = 0;
-	AES_KEY aes_key;				//OpenSSL格式的秘钥
-	int padding = 0;				//文件加密所需补丁的大小	
-	int fileSize = 0;				//文件的大小
-	int encryLenth = 0;				//加密数据的长度
-	int i = 0;
+	AES_KEY aes_key;				//OpenSSL格式的秘钥	 
 	char encryName[FILENAMELENTH] = { 0 }, cmdBuf[FILENAMELENTH] = { 0 };
 	FILE *srcFp = NULL, *decryFp = NULL;
 	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
-	int nread = 0, passLen = 0;
+	int  nread = 0, passLen = 0;
 	char passwd[33] = { 0 };
 	
 	if(!file || !passWdSrc)
@@ -1881,7 +1794,7 @@ int decry_file_AES(char *file, char *passWdSrc)
 
 	//2.拼装加密后的文件名
 	package_decry_file_name(file, encryName);
-	myprint("encFileName : %s", encryName);
+	myprint("decFileName : %s", encryName);
 	printf("----------- 1 -------------\n");
 	if(if_file_exist(encryName))
 	{
@@ -1893,15 +1806,6 @@ int decry_file_AES(char *file, char *passWdSrc)
 		}
 	}
 	printf("----------- 2 -------------\n");
-	//3.获取原始文件大小, 并计算解密的数据长度
-	if((fileSize = get_file_size(file)) < 0)
-	{
-		myprint("Err : func get_file_size()"); 
-		ret = -1;
-		goto End;
-	}
-	encryLenth = fileSize;
-	printf("----------- 3 -------------\n");
 
 	//4.设置OpenSSL格式的秘钥	
 	if(AES_set_decrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
@@ -1950,7 +1854,7 @@ int decry_file_AES(char *file, char *passWdSrc)
 			goto End;
 			assert(0);
 		}
-		memset(outData, 0,nread );
+		memset(outData, 0,AES_BLOCK_SIZE );
 		memset(srcData, 0,AES_BLOCK_SIZE );
 	}
 	
@@ -1964,37 +1868,34 @@ End:
 }
 
 
-int decry_file_AES_no_retval(char *file, char *passWdSrc)
+int mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey)
 {
-	int	ret = 0;
+	int ret = 0;
 	AES_KEY aes_key;				//OpenSSL格式的秘钥
-	int padding = 0;				//文件加密所需补丁的大小	
-	int fileSize = 0;				//文件的大小
-	int encryLenth = 0;				//加密数据的长度
-	int i = 0;
 	char encryName[FILENAMELENTH] = { 0 }, cmdBuf[FILENAMELENTH] = { 0 };
 	FILE *srcFp = NULL, *decryFp = NULL;
 	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
 	int nread = 0, passLen = 0;
 	char passwd[33] = { 0 };
-	
-	if(!file || !passWdSrc)
+	RSA *pRsa = NULL;
+	char enData_RSA[256] = { 0 };
+
+	if(!file || !passWdSrc || !publicPathKey)
 	{
-		myprint("Err : file : %p, passwd : %p", file, passWdSrc);
+		myprint("Err : file : %p, passwd : %p, publicPathKey : %p", file, passWdSrc, publicPathKey);
 		return ret = -1;
 	}
 
-	//0. 判断原始文件是否存在
+	//1. 判断原始文件是否存在
 	if(!if_file_exist(file))
 	{
 		myprint("Err : file : %s is not exist", file); 
 		ret = -1;
 		goto End;
 	}
-
-	//1. 进行用户秘钥的配置(输入最大为32字节), 16, 24, 32字节
-	passLen = strlen(passWdSrc);
 	
+	//2. 进行用户秘钥的配置(输入最大为32字节), 16, 24, 32字节
+	passLen = strlen(passWdSrc);	
 	if(passLen == 16 || passLen == 24 || passLen == 32)
 	{
 		myprint("passwd OK");		
@@ -2029,33 +1930,178 @@ int decry_file_AES_no_retval(char *file, char *passWdSrc)
 		ret = -1;
 		goto End;
 	}
-
-	//2.拼装加密后的文件名
-	package_decry_file_name(file, encryName);
-	myprint("encFileName : %s", encryName);
-	printf("----------- 1 -------------\n");
-	if(if_file_exist(encryName))
+				
+	//3. get The cert news And encry password data in use RSA style
+	if(get_cert_pubKey(&pRsa, publicPathKey) < 0)
 	{
-		sprintf(cmdBuf, "rm %s", encryName);
-		if((ret = pox_system(cmdBuf)) < 0)
-		{
-			myprint("Err : func pox_system()");
-			goto End;
-		}
+		myprint("Err : func get_cert_pubKey()");
+		ret = -1;
+		goto End;	
 	}
-	printf("----------- 2 -------------\n");
-	//3.获取原始文件大小, 并计算解密的数据长度
-	if((fileSize = get_file_size(file)) < 0)
+	if((ret = encry_data(passwd, passLen, enData_RSA, pRsa)) < 0)
 	{
-		myprint("Err : func get_file_size()"); 
+		myprint("Err : func get_cert_pubKey()");
+		ret = -1;
+		goto End;	
+	}
+
+	//4.package The encryFileName And open The file
+	package_AES_RSA_encry_file_name(file, encryName);
+	myprint("encryName : %s", encryName);
+	if(if_file_exist(encryName))
+    {
+        sprintf(cmdBuf, "rm %s", encryName);
+        if((ret = pox_system(cmdBuf)) < 0)
+        {
+            myprint("Err : func pox_system() cmd : %s", cmdBuf);
+            goto End;
+        }
+    }
+	if((srcFp = fopen(file, "rb")) == NULL)
+	{
+		myprint("Err : func fopen() fileName : %s", file);
 		ret = -1;
 		goto End;
 	}
-	encryLenth = fileSize;
-	printf("----------- 3 -------------\n");
+	if((decryFp = fopen(encryName, "wb")) == NULL)
+	{
+		myprint("Err : func fopen() fileName : %s", encryName);
+		ret = -1;
+		goto End;
+	}
 
-	//4.设置OpenSSL格式的秘钥	
-	if(AES_set_encrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
+	//5.write RSA encry data to encryFile
+	if((fwrite(enData_RSA, 1, sizeof(enData_RSA), decryFp)) < 0)
+	{
+		myprint("Err : func fwrite() fileName : %s", encryName);
+		ret = -1;
+		goto End;
+	}
+
+
+	//6. 计算加密的总长度, 设置OpenSSL格式的秘钥
+    if(AES_set_encrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
+    {
+        myprint("Err : func AES_set_encrypt_key(),fileName : %s",file); 
+		ret = -1;
+		goto End;
+		assert(0);
+    }
+
+	//7.encry file Data	   	   
+	while(!feof(srcFp))
+	{	
+		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
+		{
+			myprint("Err : func fread(), fileName : %s",file); 
+			ret = -1;
+			goto End;
+			assert(0);
+		}
+   		
+		AES_encrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
+		
+		if((fwrite(outData, 1, nread, decryFp)) < 0)
+		{
+			myprint("Err : func fwrite()"); 
+			ret = -1;
+			goto End;
+			assert(0);
+		}
+		memset(outData, 0,AES_BLOCK_SIZE );
+		memset(srcData, 0,AES_BLOCK_SIZE );
+	}
+	
+	
+End:
+
+	if(decryFp)			fclose(decryFp);
+	if(srcFp)			fclose(srcFp);
+	if(pRsa)			RSA_free(pRsa);
+	
+	return ret;
+}
+
+
+int mix_RSA_AES_decryFile(char *file, char *privatePathKey)
+{
+	int ret = 0;
+	AES_KEY aes_key;				//OpenSSL格式的秘钥
+	char decryName[FILENAMELENTH] = { 0 }, cmdBuf[FILENAMELENTH] = { 0 };
+	FILE *srcFp = NULL, *decryFp = NULL;
+	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
+	int nread = 0, passLen = 0;
+	char passwd[33] = { 0 };
+	char encryPassData[256] = { 0 };
+	RSA  *pRsa = NULL;
+
+	
+	if(!file || !privatePathKey)
+	{
+		myprint("Err : file : %p, privatePathKey : %p", file, privatePathKey);
+		return ret = -1;
+	}
+
+	//1. 判断原始文件是否存在
+	if(!if_file_exist(file))
+	{
+		myprint("Err : file : %s is not exist", file); 
+		ret = -1;
+		goto End;
+	}
+
+	//2. 生成解密文件名,并判该文件是否存在, 存在则删除
+	package_AES_RSA_decry_file_name(file, decryName);
+	myprint("decryName : %s", decryName);
+	if(if_file_exist(decryName))
+    {
+        sprintf(cmdBuf, "rm %s", decryName);
+        if((ret = pox_system(cmdBuf)) < 0)
+        {
+            myprint("Err : func pox_system() cmd : %s", cmdBuf);
+            goto End;
+        }
+    }
+
+	//3.打开文件
+	if((srcFp = fopen(file, "rb")) == NULL)
+	{
+		myprint("Err : func fopen() fileName : %s", file);
+		ret = -1;
+		goto End;
+	}
+	if((decryFp = fopen(decryName, "wb")) == NULL)
+	{
+		myprint("Err : func fopen() fileName : %s", decryName);
+		ret = -1;
+		goto End;
+	}
+
+	//4.获取私钥信息
+	if((get_privateKey_new(&pRsa, privatePathKey)) < 0)
+	{
+		myprint("Err : func get_privateKey_new() ");
+		ret = -1;
+		goto End;
+
+	}
+	
+	//5.read encry password from src File,  注意: 非对称加密, 加密的密文长度为256(固定)
+	if((fread(encryPassData, 1, 256, srcFp)) != 256)
+	{
+		myprint("Err : func fread() fileName : %s", decryName);
+		ret = -1;
+		goto End;
+	}
+	if((passLen = decry_data(encryPassData, 256, passwd, pRsa)) < 0)
+	{
+		myprint("Err : func decry_data() ");
+		ret = -1;
+		goto End;
+	}
+
+	//6. set The Symmetric encryption key
+	if(AES_set_decrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
 	{
 		myprint("Err : func AES_set_encrypt_key(),fileName : %s",file); 
 		ret = -1;
@@ -2063,28 +2109,9 @@ int decry_file_AES_no_retval(char *file, char *passWdSrc)
 		assert(0);
 	}
 
-	//6. open The file
-    if((srcFp = fopen(file, "rb")) == NULL)
-	{
-		myprint("Err : func fopen(),fileName : %s",file); 
-		ret = -1;
-		goto End;
-		assert(0);
-	}  	
-	printf("----------- 6 -------------\n");
-	if((decryFp = fopen(encryName, "wb")) == NULL)
-	{
-		myprint("Err : func fopen(), fileName : %s",encryName); 
-		ret = -1;
-		goto End;
-		assert(0);
-	} 
-	printf("----------- 7 -------------\n");
-
 	//7.encry file Data	   	   
-	for(i = 0; i < encryLenth/AES_BLOCK_SIZE; i++ )
+	while(!feof(srcFp))
 	{
-		//printf("----------- 71 -------------\n");
 		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
 		{
 			myprint("Err : func fread(), fileName : %s",file); 
@@ -2093,26 +2120,25 @@ int decry_file_AES_no_retval(char *file, char *passWdSrc)
 			assert(0);
 		}
 		AES_decrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
-		//printf("----------- 9 -------------\n");
-		if((fwrite(outData, 1, AES_BLOCK_SIZE, decryFp)) < 0)
+		if((fwrite(outData, 1, nread, decryFp)) < 0)
 		{
 			myprint("Err : func fwrite()"); 
 			ret = -1;
 			goto End;
 			assert(0);
 		}
-	
+		memset(outData, 0,AES_BLOCK_SIZE );
+		memset(srcData, 0,AES_BLOCK_SIZE );
 	}
-	
+
 End:
 
 	if(decryFp)			fclose(decryFp);
 	if(srcFp)			fclose(srcFp);
+	if(pRsa)			RSA_free(pRsa);
 
 	
 	return ret;
 }
-
-
 
 

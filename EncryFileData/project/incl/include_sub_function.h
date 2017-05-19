@@ -56,6 +56,12 @@ int get_encryNum_fromFile(char *fileName, int baseSize);
 */
 int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum);
 
+/*计算加密/解密 该文件, 所需的线程数 和 每个线程所需的工作量
+*
+*
+*/
+int get_workSize_thread(char *fileName, int baseSize, int liveThrnum, int *workThreadNum, int *beforeThreadSize, int *behindThreadSize, int *perRound, int *modSize);
+
 
 
 #ifdef __cplusplus

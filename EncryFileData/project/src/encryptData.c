@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "encryptData.h"
 #include "include_sub_function.h"
@@ -40,13 +41,14 @@ int g_fd = 0;
 
 struct _encry_handle{
 
-    char 		srcFile[FILENAMELENTH];			//原始文件的绝对路径
-    char 		encryFile[FILENAMELENTH];		//加密后文件局对路径
+    //char 		srcFile[FILENAMELENTH];			//原始文件的绝对路径
+    //char 		encryFile[FILENAMELENTH];		//加密后文件局对路径
     uint32_t	encrySize;						//线程加密数据的字节
     uint32_t    readInitPosition;				//读取文件的起始位置
     uint32_t	writeInitPosition;				//写文件的起始位置
-    //RSA			*pRsa;							//秘钥
-    //int 		workRoundNum;					//线程的加密轮次
+    char		pRsa[256];						//秘钥
+    char 		*mapSrcFileAddr;				//原始文件映射地址
+	char 		*mapDstFileAddr;				//目标文件映射地址
 
 };
 
@@ -673,15 +675,33 @@ End:
 }
 #endif
 
+void dealwith_per_threadWork(RSA *pRsa, char *mapSrcaddr, char *mapDstaddr, int threadNum,
+							int beforeSize, int behindSize, int writeBase, int perRound)
+{
+	int i = 0;
+
+	for(i = 0; i < threadNum; i++)
+	{
+		g_threadWorkHandle[i].encrySize = beforeSize;
+		g_threadWorkHandle[i].mapDstFileAddr = mapDstaddr;
+		g_threadWorkHandle[i].mapSrcFileAddr = mapSrcaddr;
+		memcpy(g_threadWorkHandle[i].pRsa, pRsa, RSA_size(pRsa));
+		g_threadWorkHandle[i].readInitPosition = beforeSize * i;
+		g_threadWorkHandle[i].writeInitPosition = writeBase * perRound * i;
+	}
+
+	if(behindSize > 0)		g_threadWorkHandle[threadNum - 1].encrySize = behindSize;
+	
+}
 
 
-
+#if 0
 /*
  *@param : threadNum  	工作线程数
  *@param : lowRoundNum	工作线程最低工作轮次
  *@param : baseNum		读取文件切割的基数大小
  */
-void dealwith_per_threadWork(char *filePath, char *decryFileName, int threadNum, int lowRoundNum, int readBaseNum, int writeBaseNum)
+void dealwith_per_threadWork_befor(char *filePath, char *decryFileName, int threadNum, int lowRoundNum, int readBaseNum, int writeBaseNum)
 {
     int frontThreadTotalByte = 0;
     int rearThreadTotalByte = 0;
@@ -730,62 +750,115 @@ void dealwith_per_threadWork(char *filePath, char *decryFileName, int threadNum,
     g_threadWorkHandle[i].writeInitPosition = writeLocation;		
 
 }
-
-#if 0
-/*
- *@param : threadNum  	工作线程数
- *@param : lowRoundNum	工作线程最低工作轮次
- *@param : baseNum		读取文件切割的基数大小
- */
-void dealwith_per_threadWork_Rsa(char *filePath, char *decryFileName, RSA *pRsa, int threadNum, int lowRoundNum, int readBaseNum, int writeBaseNum)
-{
-    int frontThreadTotalByte = 0;
-    int rearThreadTotalByte = 0;
-    	int fileSize = 0;
-    int i = 0, readLocation = 0, writeLocation = 0;
-    //1. get The file Size
-    if((fileSize = get_file_size(filePath)) < 0)
-    {
-        myprint("Err : func get_file_size() ");
-        assert(0);		
-    }
-    //2.caculate The front And rear total Bytes
-    if(threadNum == LIVETHRM)
-    {	
-        frontThreadTotalByte = lowRoundNum * readBaseNum * (LIVETHRM - 1) ;
-        rearThreadTotalByte = fileSize - frontThreadTotalByte;
-    }
-    else
-    {
-        frontThreadTotalByte = readBaseNum * (threadNum - 1) ;
-        rearThreadTotalByte = fileSize - frontThreadTotalByte;
-    }
-    memset(threadWorkHandle, 0 , sizeof(encryHandle_t) * LIVETHRM);
-    if(threadNum > 1)
-    {	
-        for(i = 0; i < threadNum - 1; i++)
-        {
-            strcpy(threadWorkHandle[i].srcFile, filePath);
-            strcpy(threadWorkHandle[i].encryFile, decryFileName);
-            threadWorkHandle[i].encrySize = readBaseNum * lowRoundNum;
-            threadWorkHandle[i].readInitPosition = readLocation;
-            threadWorkHandle[i].writeInitPosition = writeLocation;
-            readLocation += threadWorkHandle[i].encrySize;		
-            writeLocation += writeBaseNum * lowRoundNum;
-            memcpy(threadWorkHandle[i].pRsa, pRsa, RSA_size(pRsa));
-        }
-    }
-    strcpy(threadWorkHandle[i].srcFile, filePath);
-    strcpy(threadWorkHandle[i].encryFile, decryFileName);
-    threadWorkHandle[i].encrySize = rearThreadTotalByte;
-    threadWorkHandle[i].readInitPosition = readLocation;
-    threadWorkHandle[i].writeInitPosition = writeLocation;		
-    memcpy(threadWorkHandle[i].pRsa, pRsa, RSA_size(pRsa));
-    myprint("threadWorkHandle[i].pRsa : %d", RSA_size((RSA*)threadWorkHandle[i].pRsa));
-}
 #endif
 
 int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
+{
+	int ret = 0;
+  	int threadNum = 0;			  		//解密文件需要的线程总数
+  	int perRoundNum = 0;			  	//每个线程最低的工作轮次
+  	int beforeSize = 0;					//前面所有线程工作大小
+  	int behindSize = 0;					//最后一个线程工作大小
+  	int srcFileSize = 0;				//原始文件大小
+  	int dstFileSize = 0;				//目标文件大小	
+ 	RSA *pRsa = NULL; 			  		//秘钥信息
+ 	char *mp_src = NULL, *mp_dst = NULL;//两个文件映射至进程的地址	
+ 	int fd_src = 0, fd_dst = 0;			//两个文件描述符
+ 	char decryFileName[FILENAMELENTH] = { 0 };
+	int modSize = 0;					//剩余文件大小
+	int i = 0;
+	
+	//1. jurge The file is exsit
+	if(!filePath || !privatePathKey)
+	{
+		myprint("Err : filePath : %p, privatePathKey : %p", filePath, privatePathKey); 
+		ret = -1;
+		goto End;  
+	}  
+	if(!if_file_exist(filePath))
+	{
+		myprint("Err : func if_file_exist(), filePath : %s", filePath); 
+		ret = -1;
+		goto End;
+	}
+
+	//2. caculate The element
+	if((ret = get_workSize_thread(filePath, DECRYMAXSIZE, LIVETHRM, &threadNum, &beforeSize, &behindSize, &perRoundNum, &modSize)) < 0)
+	{
+		myprint("Err : func get_workSize_thread()"); 
+		ret = -1;
+		goto End;
+	}
+
+	//3.get The encryFileName and rsa provate Key
+	package_decry_file_name(filePath, decryFileName);
+    if((ret = get_privateKey_new(&pRsa, privatePathKey)) < 0)
+    {
+        myprint("Err : func get_privateKey_new() "); 	  
+        goto End;  
+    }
+
+	//4.
+	if((srcFileSize = get_file_size(filePath)) < 0)
+	{
+		myprint("Err : func get_file_size() ");	 
+		goto End;
+	}
+	if((fd_src = open(filePath, O_RDONLY)) < 0)
+	{
+		myprint("Err : func open(), FileName : %s ", filePath);  
+		goto End;
+	}
+	if((fd_dst = open(decryFileName, O_RDWR | O_CREAT | O_TRUNC, 0666)) < 0)
+	{
+		myprint("Err : func open(), FileName : %s ", decryFileName );	
+		goto End;
+	}
+	if((ret = ftruncate(fd_dst, srcFileSize)) < 0)
+	{
+		myprint("Err : func ftruncate(), FileName " );	
+		goto End;
+	}
+
+	if((mp_src = (char *)mmap(NULL, srcFileSize, PROT_READ, MAP_SHARED, fd_src, 0)) == MAP_FAILED)
+	{
+		myprint("Err : func mmap(), FileName : %s ", filePath );	
+		goto End;
+	}
+	if((mp_dst = (char *)mmap(NULL, srcFileSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd_dst, 0)) == MAP_FAILED)
+	{
+		myprint("Err : func mmap(), FileName : %s ", decryFileName );	
+		goto End;
+	}
+
+	//5.caculate The per_thread working
+	dealwith_per_threadWork(pRsa, mp_src, mp_dst, threadNum, beforeSize, behindSize, ENCRYMAXSIZE, perRoundNum);
+	printf("\n");
+	myprint("mp_src : %p, mp_dst : %p",mp_src,mp_dst);
+	printf("\n");
+	//6. add task to per_Thread 
+	for(i = 0; i < threadNum; i++)
+    {
+        threadpool_add(pool, decry_process, (void *)i);
+    }
+
+	//7. wait The child working OK
+	for(i = 0; i < threadNum; i++)
+		sem_wait(&g_sem_notify_task_complete);
+
+End:
+	if(pRsa)						RSA_free(g_pRsa); 
+	if(fd_dst > 0)					close(fd_dst);
+	if(fd_src > 0)					close(fd_src);
+	if(mp_dst != MAP_FAILED)		munmap(mp_dst, srcFileSize);
+    if(mp_src != MAP_FAILED)		munmap(mp_src, srcFileSize);	
+
+
+	return ret;
+}
+
+#if 0
+int multiDecryFile_05_19(char *filePath, char *privatePathKey, threadpool_t *pool)
 {
     int ret = 0;
     int roundNum = 0; 				//本文件需要解密的总轮次
@@ -885,7 +958,7 @@ End:
 	}
     return ret;
 }
-
+#endif
 void write_file_fd(int fd, char *srcContent, int Lenth, int position, int index)
 {
 
@@ -955,7 +1028,36 @@ void write_file(FILE* fp, char *srcContent, int Lenth, int index)
 
 
 
+
 void decry_process(void *arg)
+{
+    int  index = (int)arg;
+	int  begin, end;			  //定义时间开始和结束标志位  ;
+	begin=clock();//开始计时
+ 
+ 
+    //2. move file descriptor And read data to cache memory
+	myprint("mapSrcFileAddr : %p, mapDstFileAddr : %p, readInitPosition : %d, writeInitPosition : %d , encrySize : %d", 
+		g_threadWorkHandle[index].mapSrcFileAddr, g_threadWorkHandle[index].mapDstFileAddr,
+		g_threadWorkHandle[index].readInitPosition, g_threadWorkHandle[index].writeInitPosition,
+		g_threadWorkHandle[index].encrySize);
+
+	myprint("============= 1 ===============");
+	memcpy(g_threadWorkHandle[index].mapDstFileAddr + g_threadWorkHandle[index].writeInitPosition,
+			g_threadWorkHandle[index].mapSrcFileAddr + g_threadWorkHandle[index].readInitPosition,
+			g_threadWorkHandle[index].encrySize); 
+	myprint("============= 2 ===============");	
+	
+	sem_post(&g_sem_notify_task_complete);
+	end=clock();//结束计时	
+	printf("The operation time : %d\n", end-begin);//差为时间，单位毫秒  
+
+	
+    return;
+}
+
+#if 0
+void decry_process_map(void *arg)
 {
     int  index = (int)arg;
     char pRsa[256] = { 0 };	
@@ -1052,7 +1154,7 @@ End:
 	
     return;
 }
-
+#endif
 
 #if 0
 void decry_process_read_NoLock(void *arg)
@@ -1141,7 +1243,7 @@ End:
 }
 #endif
 
-#if 1
+#if 0
 void decry_process_decry(void *arg)
 {
     int  index = (int)arg;
@@ -1212,7 +1314,7 @@ End:
 #endif
 
 
-
+#if 0
 void encry_process(void *arg)
 {
     encryHandle_t *handle = (encryHandle_t *)arg;
@@ -1256,7 +1358,7 @@ End:
     }
     if(srcFp)		fclose(desFp);
 }
-
+#endif
 
 
 threadpool_t *init()

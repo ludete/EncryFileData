@@ -82,7 +82,67 @@ bool if_file_exist(const char *filePath)
 }
 
 
-// get The Number of encryption
+int get_workSize_thread(char *fileName, int baseSize, int liveThrnum, int *workThreadNum, int *beforeThreadSize, int *behindThreadSize, int *perRound, int *modSize)
+{
+	int ret = 0, fileSize = 0, totalRound = 0;
+	int thrNum = 0;				//work thread Number
+	int peerThreadRound = 0;	//peer Thread work Round
+	int modFile = 0; 			//The file mod size
+	
+	if(!fileName || baseSize < 0 || liveThrnum <= 0 || !workThreadNum || !beforeThreadSize || !behindThreadSize)
+	{
+		myprint("Err : filename : %p, baseSize : %d, liveThrnum : %d, workThreadNum : %p, \
+				beforeThreadSize : %p,behindThreadSize : %p ", 
+				fileName, baseSize, liveThrnum, workThreadNum, beforeThreadSize, behindThreadSize);
+		ret = -1;
+		goto End;
+	}
+
+
+	//1. get The file Size
+	if((fileSize = get_file_size(fileName)) < 0)
+	{
+		myprint("Err : func get_file_size() ");
+		ret = -1;
+		goto End;
+	}
+
+	//2. caculate The total roundNum for encry or decry File 
+	if((totalRound = fileSize / baseSize) == 0)
+	{
+		totalRound = 1;
+	}
+
+	//3. caculate The work Thread Number
+	if(totalRound >= liveThrnum)		thrNum = liveThrnum;
+	else								thrNum = totalRound;
+
+	//4. caculate peer Thread work Round
+	peerThreadRound = totalRound / thrNum;
+
+	//5. caculate thread work FileSize
+	if(baseSize < fileSize)
+	{
+		*beforeThreadSize = peerThreadRound * baseSize;
+		if((modFile = fileSize - *beforeThreadSize * thrNum) > 0)
+			*behindThreadSize = *beforeThreadSize + modFile;
+	}
+	else
+	{
+		*beforeThreadSize = fileSize;
+	}
+	
+	*workThreadNum = thrNum;
+	*perRound = peerThreadRound;
+	*modSize = modFile;
+
+End:
+
+	return ret;
+}
+
+
+// get The Number of encryption round
 int get_encryNum_fromFile(char *fileName, int baseSize)
 {
 	int ret = 0, fileSize = 0;
@@ -102,10 +162,7 @@ int get_encryNum_fromFile(char *fileName, int baseSize)
 	}
 
 	//2. get The Number of encryption
-	if( (fileSize % baseSize) > 0 )
-		ret = fileSize / baseSize + 1;
-	else
-		ret = fileSize / baseSize;
+	ret = fileSize / baseSize;
 	
 End:
 
@@ -131,10 +188,7 @@ int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum)
 	//2. get The low round Number for per-thread
 	if(workThreadNum == liveThreadNum)
 	{
-		if(workThreadNum > 1)
-			*lowRoundNum = workRounds / (workThreadNum );		
-		else
-			*lowRoundNum = workRounds;
+		*lowRoundNum = workRounds / (workThreadNum );		
 	}
 	else
 	{

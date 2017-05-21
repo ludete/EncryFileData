@@ -227,7 +227,7 @@ void *threadpool_thread(void * threadpool)
 		pool->busy_thr_num++;
 		pthread_mutex_unlock(&(pool->thread_counter));
 
-		myprint("Thread : 0x%x start working", (unsigned int)pthread_self());
+//		myprint("Thread : 0x%x start working", (unsigned int)pthread_self());
 		task.func(task.arg);		//执行回调任务
 		
 		pthread_mutex_lock(&(pool->thread_counter));

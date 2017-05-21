@@ -14,10 +14,10 @@ obj = $(patsubst %.c, %.o, $(src))
 encry_dec_data = encry_dec_data
 test = test_debug
 test_thread_pool = test_thread_pool
-
+mutilProcessCopy = mutilProcessCopy
 
 #target = $(encry_dec_data) $(test_thread_pool)
-target =  $(encry_dec_data)	$(test) 
+target =  $(encry_dec_data)	$(test) $(mutilProcessCopy)
 
 ALL:$(target)
     
@@ -39,6 +39,10 @@ $(test):./src/test.o
 #test_thread_pool
 $(test_thread_pool):./src/test_thread_pool.o  ./src/thread_pool.o ./src/include_sub_function.o
 	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  	
+
+#mutilProcessCopy
+$(mutilProcessCopy):./src/mult_process_cp.o
+	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
 	
 #clean÷∏¡Ó
 

@@ -137,6 +137,25 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool);
 */
 int destroy(threadpool_t *pool );
 
+/*对称加密算法加密文件, AES
+*@param : file 		 	 原始文件的绝对路径
+*@param : passwd 		 指定加密文件的数据秘钥
+*@retval: success 0, fail -1;
+*/
+int encry_file_AES(char *file, char *passwd);
+
+/*对称加密算法解密文件, AES
+*@param : file 		 	 原始文件的绝对路径
+*@param : passwd 		 指定加密文件的数据秘钥
+*@retval: success 0, fail -1;
+*/
+int decry_file_AES(char *file, char *passWdSrc);
+
+
+int mix_RSA_AES_decryFile(char *file, char *privatePathKey);
+
+int mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey);
+
 #ifdef __cplusplus
 }
 #endif

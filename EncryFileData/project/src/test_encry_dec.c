@@ -56,8 +56,8 @@ End:
 void test_encryptFile()
 {
 	int ret = 0;
-	//if((ret = encryptFileData("C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);
-	if((ret = encryptFileData("hello.mp4", PUBLICKEY)) < 0)		assert(0);
+	if((ret = encryptFileData("C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);
+	//if((ret = encryptFileData("hello.mp4", PUBLICKEY)) < 0)		assert(0);
 
 
 //	if((ret = encryptFileData("/home/yyx/MyEncryProject/EncryFileData/project/C_16_01_04_10_16_10_030_B_L.jpg", PUBLICKEY)) < 0)		assert(0);	
@@ -77,6 +77,7 @@ void test_multiDecryFile()
 	pool = init();
 	if((multiDecryFile("C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY, pool)) < 0)			assert(0); 
 	//if((multiDecryFile("hello_ENCRYPT.mp4", PRIVATEKEY, pool)) < 0)			assert(0); 
+	
 
 	//sleep(12);
 	destroy(pool);
@@ -93,6 +94,55 @@ void test_lockNum()
 
 }
 
+void test_AES_encryfile()
+{
+	char *file = "C_16_01_04_10_16_10_030_B_L.jpg";
+	char *key = "1254544844020202";
+	
+	if((encry_file_AES(file, key)) < 0)
+	{
+		myprint("Err : func encry_file_AES()");
+	}
+
+}
+
+void test_AES_decryfile()
+{
+	char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg";
+	char *key = "1254544844020202";
+	
+	if((decry_file_AES(file, key)) < 0)
+	{
+		myprint("Err : func decry_file_AES()");
+	}	
+
+}
+
+void test_AES_RSA_decryfile()
+{
+	char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT_RSA_AES.jpg";
+	
+	if((mix_RSA_AES_decryFile(file, PRIVATEKEY)) < 0)
+	{
+		myprint("Err : func decry_file_AES()");
+	}	
+
+
+}
+
+void test_AES_RSA_encryfile()
+{
+	char *file = "C_16_01_04_10_16_10_030_B_L.jpg";
+	char *key = "1254544844020202";
+	
+	if((mix_RSA_AES_encryFile(file, key, PUBLICKEY)) < 0)
+	{
+		myprint("Err : func mix_RSA_AES_encryFile()");
+	}
+
+}
+
+
 int main()
 {
 	int ret = 0;
@@ -101,8 +151,13 @@ int main()
 	//test_decryptFile();
 	test_multiDecryFile();
 	//test_content();	
-
 	//test_lockNum();
+	//test_AES_encryfile();
+	//test_AES_decryfile();
+	//test_AES_RSA_encryfile();
+	//test_AES_RSA_decryfile();
+
+
 
 	return ret;
 }

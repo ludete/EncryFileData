@@ -87,7 +87,7 @@ int decry_data(char *str, int lenth, char *deData, RSA *pRsa);
 
 /*获取剩余文件的 加密所需的最小线程数(即剩余文件的最小工作轮次) 以及 (所有线程工作量)最后剩余的文件大小
 *@param : filePath 		 	 文件路径
-*@param : threadNum 		 该文件所需工作线程的数量
+*@param : threadNum 		 	 该文件所需工作线程的数量
 *@param : lowRoundNum 		 所需线程的最小工作轮次
 *@param : baseSize 		 	 文件计算的分割基数
 *@param : size				 最后剩余文件大小

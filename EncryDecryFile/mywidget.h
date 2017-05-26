@@ -31,12 +31,14 @@ private slots:
 
     void on_Decry_clicked();
 
+    void on_createKey_clicked();
+
 private:
     Ui::MyWidget *ui;
     char publicPath_pri[FILENAMELENTH];
     char encryFile_pri[FILENAMELENTH];
     char decryFile_pri[FILENAMELENTH];
-    char privatePath_pri[FILENAMELENTH];
+    char privatePath_pri[FILENAMELENTH];    
     void *pool_pri;
 };
 

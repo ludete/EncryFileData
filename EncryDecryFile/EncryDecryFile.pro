@@ -17,7 +17,7 @@ SOURCES += \
 
 HEADERS += \
     mywidget.h \
-    encryptData.h
+    encryDecryFile.h
 
 FORMS += \
     mywidget.ui
@@ -25,6 +25,6 @@ FORMS += \
 unix{
 INCLUDEPATH += -I/home/yyx02/QtCode/build-EncryDecryFile-Desktop_Qt_5_4_2_GCC_32bit-Release/include
 
-LIBS += -L/home/yyx02/QtCode/build-EncryDecryFile-Desktop_Qt_5_4_2_GCC_32bit-Release/lib -lssl -lcrypto -lencrydecry
-
+LIBS +=  -L./ -lssl -lcrypto -lencrydecry
+LIBS += -lpthread
 }

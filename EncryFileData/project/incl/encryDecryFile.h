@@ -47,6 +47,10 @@ retval_t mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey,
 retval_t mix_RSA_AES_decryFile(char *file, char *privatePathKey, char *decryFile);
 
 
+/*create The private Key
+*@param : fileName   private key absolute path
+*/
+retval_t create_private_public_key(char *publicKey, char *privateKey);
 
 
 

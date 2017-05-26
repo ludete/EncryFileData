@@ -18,6 +18,7 @@
 
 #include "encryDecryFile.h"
 #include "include_sub_function.h"
+#include "include_EncryDecry.h"
 #include "thread_pool.h"
 
 #include <openssl/aes.h>
@@ -25,42 +26,21 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 
-#define ENCRYFLAG  "_ENCRYPT"
-#define DECRYFLAG  "_DECRYPT"
-#define MUTILENCYR "_ENCRYPT_RSA_AES"
-#define MUTILDECYR "_DECRYPT_RSA_AES"
+
 #define ENCRYMAXSIZE  245
 #define DECRYMAXSIZE  256
 #define LIVETHRM    10
 
 #define _OS_LINUX_ 1
 
-int encry_data(char *str, int lenth, char *enData, RSA *pRsa);
-
-int decry_data(char *str, int lenth, char *deData, RSA *pRsa);
-
-void package_encry_file_name(char *filePath, char *encFileName);
-
-void package_decry_file_name(char *filePath, char *decFileName);
-
-void package_AES_RSA_encry_file_name(char *filePath, char *encFileName);
-
-void package_AES_RSA_decry_file_name(char *filePath, char *decFileName);
 
 
-/*获取证书文件信息
-*@param : pRsa : 公钥信息
-*@param : publicPathKey : 证书文件路径
+
+/*create The public Key
+*@param : fileName   public Key absolute path
 */
-retval_t get_cert_pubKey(RSA  **pRsa, char *publicPathKey);
+retval_t create_public_key(char *fileName, void *pRsa);
 
-/*获取公钥信息
-*@param : pRsa : 公钥信息
-*@param : publicKey : 公钥文件路径
-*/
-retval_t get_public_key(RSA **pRsa, char *publicKey);
-
-int get_privateKey_new(RSA  **pRsa, char *privatePathKey);
 
 
 retval_t encryptFile(char *filePath, char *publicKey, char *encFileName, int encryType)
@@ -122,7 +102,7 @@ retval_t encryptFile(char *filePath, char *publicKey, char *encFileName, int enc
 	//3. choose The type for encryFile
 	if(encryType == 0)
 	{
-		ret = get_public_key(&pRsa, publicKey);
+		ret = get_public_key((void **)&pRsa, publicKey);
 		if(ret.retval < 0)
 		{		
 	        goto End;
@@ -130,7 +110,7 @@ retval_t encryptFile(char *filePath, char *publicKey, char *encFileName, int enc
 	}
 	else if(encryType == 1)
 	{	
-	    get_cert_pubKey(&pRsa, publicKey);
+	    get_cert_pubKey((void **)&pRsa, publicKey);
 		if(ret.retval < 0)
 		{		
 	        goto End;
@@ -234,7 +214,7 @@ retval_t decryptFile(char *filePath, char *privatePathKey, char *decFileName)
     if((decryFp = fopen(decFileName, "ab+")) == NULL)		assert(0);
 
     //4. get The private Key News
-    if(get_privateKey_new(&pRsa, privatePathKey) < 0)
+    if(get_privateKey_new((void **)&pRsa, privatePathKey) < 0)
     {
     	ret.retval = -1;
 		sprintf(ret.reason, "Err : func get_privateKey_new() : %s, [%d],[%s]", privatePathKey, __LINE__, __FILE__);	
@@ -348,7 +328,7 @@ retval_t mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey,
 	//2. get The cert news And encry password data in use RSA style
 	if(encryType == 0)
 	{
-		ret = get_public_key(&pRsa, publicPathKey);
+		ret = get_public_key((void **)&pRsa, publicPathKey);
 		if(ret.retval < 0)
 		{		
 	        goto End;
@@ -356,7 +336,7 @@ retval_t mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey,
 	}
 	else if(encryType == 1)
 	{	
-	    get_cert_pubKey(&pRsa, publicPathKey);
+	    get_cert_pubKey((void **)&pRsa, publicPathKey);
 		if(ret.retval < 0)
 		{		
 	        goto End;
@@ -508,7 +488,7 @@ retval_t mix_RSA_AES_decryFile(char *file, char *privatePathKey, char *decryName
 	}
 
 	//4.获取私钥信息
-	if((get_privateKey_new(&pRsa, privatePathKey)) < 0)
+	if((get_privateKey_new((void **)&pRsa, privatePathKey)) < 0)
 	{
 		ret.retval = -1;
 		sprintf(ret.reason, "Err : func get_privateKey_new() [%d],[%s]", __LINE__, __FILE__); 				
@@ -566,399 +546,128 @@ End:
 	return ret;
 }
 
-
-int encry_data(char *str, int lenth, char *enData, RSA *pRsa)
+void testWriteRSA2PEM()
 {
-    int ret = 0;
-    if(!str || lenth < 0 || !enData || !pRsa)
-    {
-        myprint("Err : str : %p, lenth : %d, enData : %p, pRsa : %p ", str, lenth, enData, pRsa);       
-        ret = -1;
-        goto End;  
-    }
-
-    //1. public Key encrypt Data
-    if((ret = RSA_public_encrypt(lenth, (unsigned char *)str, (unsigned char *)enData, pRsa, RSA_PKCS1_PADDING)) < 0)
-    {
-        myprint("Err : func RSA_public_encrypt()");	
-        goto End;        
-    } 
-
-End:
-    return ret;
-}
-
-void package_encry_file_name(char *filePath, char *encFileName)
-{
-    char *tmp = NULL;
-    char suffix[20] = { 0 };
-    char path[FILENAMELENTH] = { 0 };
-    char name[FILENAMELENTH] = { 0 };
-
-    //2. get The SrcFile suffix
-    if((tmp = strrchr(filePath, '.')))			
-    {
-        memcpy(suffix, tmp, strlen(tmp));
-    }
-
-    //3. get The path 
-#ifdef _OS_WIN_
-    if((tmp = strrchr(filePath, '\\')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "\\");
-    }
-#endif
-
-#ifdef	_OS_LINUX_
-    if((tmp = strrchr(filePath, '/')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "/");
-    }
-#endif
-
-    //4. get The FILE name 
-    if(tmp == NULL)
-    {
-        memcpy(name, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
-    }
-    else
-    {
-        memcpy(name, tmp + 1, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix) - 1));
-    }
-
-    //5. package The decryFileName
-#ifdef  _OS_WIN_
-    sprintf(encFileName, "%s%s%s%s", path, name, ENCRYFLAG, suffix);
-#endif
-#ifdef  _OS_LINUX_
-    sprintf(encFileName, "%s%s%s%s", path, name, ENCRYFLAG, suffix);
-#endif
-
-}
-
-
-//组装 解密文件名
-void package_decry_file_name(char *filePath, char *decFileName)
-{
-    char *tmp = NULL;
-    char suffix[20] = { 0 };
-    char path[FILENAMELENTH] = { 0 };
-    char name[FILENAMELENTH] = { 0 };
-    char tmpname[FILENAMELENTH] = { 0 };
-
-	myprint("filePath : %s", filePath);
-
-    //2. get The SrcFile suffix
-    if((tmp = strrchr(filePath, '.')))			
-    {
-        memcpy(suffix, tmp, strlen(tmp));
-    }
-
-    //3. get The path 
-#ifdef _OS_WIN_
-    if((tmp = strrchr(filePath, '\\')))		
-    {
-        memcpy(path, filePath, MY_MIN(516, strlen(filePath) - strlen(tmp)));
-        strcat(path, "\\");
-    }
-#endif
-
-#ifdef  _OS_LINUX_
-
-    if((tmp = strrchr(filePath, '/')))		
-    {
-        memcpy(path, filePath, MY_MIN(516, strlen(filePath) - strlen(tmp)));
-        strcat(path, "/");
-    }
-#endif
-
-    //4. get The FILE name 
-    if(tmp == NULL)
-    {
-        memcpy(tmpname, filePath, MY_MIN(258, strlen(filePath) - strlen(suffix)));
-    }
-    else
-    {
-        memcpy(tmpname, tmp, MY_MIN(258, strlen(tmp) - strlen(suffix)));
-    }
-
-    if((tmp = memstr(tmpname, strlen(tmpname), ENCRYFLAG)))
-    {
-        memcpy(name, tmpname, strlen(tmpname) - strlen(tmp));
-    }
-    else
-    {
-        myprint("No find encrypt File, The name : %s", tmpname);
-        return;
-    }
-
-    //5. package The decryFileName
-#ifdef	_OS_WIN_
-    sprintf(decFileName, "%s%s%s%s", path, name, DECRYFLAG, suffix);
-#endif
-#ifdef	_OS_LINUX_
-    sprintf(decFileName, "%s%s%s%s", path, name, DECRYFLAG, suffix);
-#endif
-
+    //生成密钥对
+    RSA *r = RSA_new();
+    int bits = 2048;
+    BIGNUM *e = BN_new();
+    BN_set_word(e, 65537);
+    RSA_generate_key_ex(r, bits, e, NULL);
+    
+    RSA_print_fp(stdout, r, 0);
+    
+    BIO *out;
+    out = BIO_new_file("./opriv.pem","w");
+    //这里生成的私钥没有加密，可选加密
+    int ret = PEM_write_bio_RSAPrivateKey(out, r, NULL, NULL, 0, NULL, NULL);
+    printf("writepri:%d\n",ret);
+    BIO_flush(out);
+    BIO_free(out);
+    
+    out = BIO_new_file("./opub.pem","w");
+    ret = PEM_write_bio_RSAPublicKey(out, r);
+    printf("writepub:%d\n",ret);
+    BIO_flush(out);
+    BIO_free(out);
+    
+    BN_free(e);
+    RSA_free(r);
 
 }
 
 
 
-void package_AES_RSA_encry_file_name(char *filePath, char *encFileName)
-{
-    char *tmp = NULL;
-    char suffix[20] = { 0 };
-    char path[FILENAMELENTH] = { 0 };
-    char name[FILENAMELENTH] = { 0 };
 
-    //2. get The SrcFile suffix
-    if((tmp = strrchr(filePath, '.')))			
-    {
-        memcpy(suffix, tmp, strlen(tmp));
-    }
-
-    //3. get The path 
-#ifdef _OS_WIN_
-    if((tmp = strrchr(filePath, '\\')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "\\");
-    }
-#endif
-
-#ifdef	_OS_LINUX_
-    if((tmp = strrchr(filePath, '/')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "/");
-    }
-#endif
-
-    //4. get The FILE name 
-    if(tmp == NULL)
-    {
-        memcpy(name, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
-    }
-    else
-    {
-        memcpy(name, tmp + 1, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix) - 1));
-    }
-
-    //5. package The decryFileName
-#ifdef  _OS_WIN_
-    sprintf(encFileName, "%s%s%s%s", path, name, MUTILENCYR, suffix);
-#endif
-#ifdef  _OS_LINUX_
-    sprintf(encFileName, "%s%s%s%s", path, name, MUTILENCYR, suffix);
-#endif
-
-
-}
-
-
-//组装 解密文件名
-void package_AES_RSA_decry_file_name(char *filePath, char *decFileName)
-{
-    char *tmp = NULL;
-    char suffix[20] = { 0 };
-    char path[FILENAMELENTH] = { 0 };
-    char name[FILENAMELENTH] = { 0 };
-    char tmpname[FILENAMELENTH] = { 0 };
-
-    //2. get The SrcFile suffix
-    if((tmp = strrchr(filePath, '.')))			
-    {
-        memcpy(suffix, tmp, strlen(tmp));
-    }
-
-    //3. get The path 
-#ifdef _OS_WIN_
-    if((tmp = strrchr(filePath, '\\')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "\\");
-    }
-#endif
-
-#ifdef  _OS_LINUX_
-
-    if((tmp = strrchr(filePath, '/')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "/");
-    }
-#endif
-
-    //4. get The FILE name 
-    if(tmp == NULL)
-    {
-        memcpy(tmpname, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
-    }
-    else
-    {
-        memcpy(tmpname, tmp, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix)));
-    }
-
-    if((tmp = memstr(tmpname, strlen(tmpname), MUTILENCYR)))
-    {
-        memcpy(name, tmpname, strlen(tmpname) - strlen(tmp));
-    }
-    else
-    {
-        myprint("No find encrypt File, The name : %s", tmpname);
-        return;
-    }
-
-    //5. package The decryFileName
-#ifdef	_OS_WIN_
-    sprintf(decFileName, "%s%s%s%s", path, name, MUTILDECYR, suffix);
-#endif
-#ifdef	_OS_LINUX_
-    sprintf(decFileName, "%s%s%s%s", path, name, MUTILDECYR, suffix);
-#endif
-
-
-}
-
-int decry_data(char *str, int lenth, char *deData, RSA *pRsa)
-{
-    int ret = 0;
-
-    if(!str || lenth < 0 || !deData || !pRsa)
-    {
-        myprint("Err : str : %p, lenth : %d, deData : %p, pRsa : %p ", str, lenth, deData, pRsa);       
-        ret = -1;
-        goto End;  
-    }
-
-    //1. private Key decrypt Data
-    if((ret = RSA_private_decrypt(lenth, (unsigned char *)str, (unsigned char *)deData, pRsa, RSA_PKCS1_PADDING)) < 0)
-    {
-        myprint("Err : func RSA_private_decrypt()");
-        ERR_print_errors_fp(stdout);  
-        goto End;		 
-    } 
-
-End:
-
-    return ret;
-}
-
-
-//get the certficate news 
-retval_t get_cert_pubKey(RSA  **pRsa, char *publicPathKey)
-{
-    retval_t ret;
-    RSA  *tmpRsa = NULL;
-    BIO  *tmpBio = NULL; 
-    X509 *tmpX509 = NULL;      
-    EVP_PKEY *tmpEvpKey = NULL;  
-  
-	memset(&ret, 0, sizeof(retval_t));
-    //1.get The public Key from cert
-    if((tmpBio = BIO_new_file(publicPathKey, "rb" )) == NULL)
-	{		
-		ret.retval = -1;
-		sprintf(ret.reason, "Err : func BIO_new_file() [%d],[%s]", __LINE__, __FILE__);
-		goto End;  		
-	}
-    if((tmpX509 = PEM_read_bio_X509(tmpBio, NULL, NULL, NULL)) == NULL)
-	{
-		ret.retval = -1;
-		sprintf(ret.reason, "Err : func PEM_read_bio_X509() [%d],[%s]", __LINE__, __FILE__);
-		goto End; 
-	}
-    if((tmpEvpKey = X509_get_pubkey(tmpX509)) == NULL)						
-	{
-		ret.retval = -1;
-		sprintf(ret.reason, "Err : func X509_get_pubkey() [%d],[%s]", __LINE__, __FILE__);
-		goto End; 
-	}
-    if((tmpRsa = EVP_PKEY_get1_RSA(tmpEvpKey)) == NULL) 					
-	{
-		ret.retval = -1;
-		sprintf(ret.reason, "Err : func EVP_PKEY_get1_RSA() [%d],[%s]", __LINE__, __FILE__);
-		goto End; 
-	}
-
-    *pRsa = tmpRsa;
-
-End:
-
-    if(tmpEvpKey)					EVP_PKEY_free(tmpEvpKey);   
-    if(tmpBio)    					BIO_free(tmpBio); 
-
-    return ret; 
-}
-
-
-retval_t get_public_key(RSA **pRsa, char *publicKey)
+retval_t create_private_public_key(char *publicKey, char *privateKey)
 {
 	retval_t ret;
-	FILE *fpKey = NULL;
-	
+	RSA *pRsa = NULL;;
+    int bits = 2048;					//秘钥长度(bit)
+    BIGNUM *bn_new = NULL;
+	BIO *out = NULL;
+
 	memset(&ret, 0, sizeof(retval_t));
-	if((fpKey = fopen(publicKey, "rb")) == NULL)
+
+	//1. create The key news
+	if((pRsa = RSA_new()) == NULL)
 	{
 		ret.retval = -1;
-		sprintf(ret.reason, "Err : open The file Error : %s, [%d],[%s]", publicKey, __LINE__, __FILE__);
+		sprintf(ret.reason, "Err : func RSA_new() [%d],[%s]", __LINE__, __FILE__); 				
 		goto End;
 	}
 
-
-	if((*pRsa = PEM_read_RSAPublicKey(fpKey, NULL, NULL, NULL)) == NULL) 
-	{		
+	//2. new what; I don`t Konw too; 
+	if((bn_new = BN_new()) == NULL)
+	{
 		ret.retval = -1;
-		sprintf(ret.reason, "Err : get The public Key Error : %s, [%d],[%s]", publicKey, __LINE__, __FILE__);
+		sprintf(ret.reason, "Err : func BN_new() [%d],[%s]", __LINE__, __FILE__);				
 		goto End;
 	}
 
-End:
-	if(fpKey)		fclose(fpKey);
+	//3.set The element flag
+    BN_set_word(bn_new, 65537);
+	RSA_generate_key_ex(pRsa, bits, bn_new, NULL);
+
+	//4.create The file for private Key
+	if((out = BIO_new_file(privateKey, "w")) == NULL)
+  	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : create privateKey : %s [%d],[%s]", privateKey, __LINE__, __FILE__);				
+		goto End;
+	}
+
+	//5.这里生成的私钥没有加密，可选加密
+    if((PEM_write_bio_RSAPrivateKey(out, pRsa, NULL, NULL, 0, NULL, NULL)) != 1)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : write privateKey : %s, [%d],[%s]", privateKey ,__LINE__, __FILE__);				
+		goto End;
+	}
+	BIO_flush(out);
+
+
+	//6.生成私钥
+	ret = create_public_key(publicKey, (void*)pRsa);
+	
+End:	
+	if(out) 		BIO_free(out);
+	if(bn_new)		BN_free(bn_new);
+	if(pRsa)		RSA_free(pRsa);
+		
+	return ret;
+}
+
+
+retval_t create_public_key(char *publicKey, void *pRsaSrc)
+{
+	retval_t ret;
+	BIO *out = NULL;
+	RSA *pRsa = (RSA *)pRsaSrc;
+	
+	memset(&ret, 0, sizeof(retval_t));
+	//1.create The file for public Key
+	if((out = BIO_new_file(publicKey, "w")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : create publicKey : %s [%d],[%s]", publicKey, __LINE__, __FILE__);				
+		goto End;
+
+	}
+
+	//2. write News for public key
+	if((PEM_write_bio_RSAPublicKey(out, pRsa)) != 1)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : write publicKey : %s, [%d],[%s]", publicKey, __LINE__, __FILE__);				
+		goto End;
+	}
+	BIO_flush(out);
+
+End:	
+	if(out) 		BIO_free(out);
 	
 	return ret;
 }
 
-//get The private Key News
-int get_privateKey_new(RSA  **pRsa, char *privatePathKey)
-{
-    int ret = 0;
-    RSA  *tmpRsa = NULL;
-    FILE *tmpKeyFp = NULL;
-
-    if(!pRsa || !privatePathKey)
-    {
-        myprint("Err : pRsa : %p, privatePathKey : %p", pRsa, privatePathKey); 	  
-        ret = -1;
-        goto End;  
-    }
-
-    //1. open the private Key
-    if((tmpKeyFp = fopen(privatePathKey, "r")) == NULL)
-    {
-        myprint("Err : func fopen() %s", privatePathKey); 
-        ret = -1;
-        goto End;  
-    } 
-
-    //2. get The news from private Key
-    if((tmpRsa = PEM_read_RSAPrivateKey(tmpKeyFp, NULL, NULL, NULL)) == NULL)
-    {
-        myprint("Err : func PEM_read_RSAPrivateKey() ");
-        ret = -1;
-        ERR_print_errors_fp(stdout);    
-        goto End; 
-    }
-	
-    *pRsa = tmpRsa;
-
-End:
-
-    if(tmpKeyFp)			fclose(tmpKeyFp);
-	
-    return ret;
-}
 

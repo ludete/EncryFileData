@@ -995,6 +995,126 @@ End:
 }
 
 
+//组装 解密文件名
+void package_decry_file_name(char *filePath, char *decFileName)
+{
+    char *tmp = NULL;
+    char suffix[20] = { 0 };
+    char path[FILENAMELENTH] = { 0 };
+    char name[FILENAMELENTH] = { 0 };
+    char tmpname[FILENAMELENTH] = { 0 };
+
+	myprint("filePath : %s", filePath);
+
+    //2. get The SrcFile suffix
+    if((tmp = strrchr(filePath, '.')))			
+    {
+        memcpy(suffix, tmp, strlen(tmp));
+    }
+
+    //3. get The path 
+#ifdef _OS_WIN_
+    if((tmp = strrchr(filePath, '\\')))		
+    {
+        memcpy(path, filePath, MY_MIN(516, strlen(filePath) - strlen(tmp)));
+        strcat(path, "\\");
+    }
+#endif
+
+#ifdef  _OS_LINUX_
+
+    if((tmp = strrchr(filePath, '/')))		
+    {
+        memcpy(path, filePath, MY_MIN(516, strlen(filePath) - strlen(tmp)));
+        strcat(path, "/");
+    }
+#endif
+
+    //4. get The FILE name 
+    if(tmp == NULL)
+    {
+        memcpy(tmpname, filePath, MY_MIN(258, strlen(filePath) - strlen(suffix)));
+    }
+    else
+    {
+        memcpy(tmpname, tmp, MY_MIN(258, strlen(tmp) - strlen(suffix)));
+    }
+
+    if((tmp = memstr(tmpname, strlen(tmpname), ENCRYFLAG)))
+    {
+        memcpy(name, tmpname, strlen(tmpname) - strlen(tmp));
+    }
+    else
+    {
+        myprint("No find encrypt File, The name : %s", tmpname);
+        return;
+    }
+
+    //5. package The decryFileName
+#ifdef	_OS_WIN_
+    sprintf(decFileName, "%s%s%s%s", path, name, DECRYFLAG, suffix);
+#endif
+#ifdef	_OS_LINUX_
+    sprintf(decFileName, "%s%s%s%s", path, name, DECRYFLAG, suffix);
+#endif
+
+
+}
+
+
+
+void package_encry_file_name(char *filePath, char *encFileName)
+{
+    char *tmp = NULL;
+    char suffix[20] = { 0 };
+    char path[FILENAMELENTH] = { 0 };
+    char name[FILENAMELENTH] = { 0 };
+
+    //2. get The SrcFile suffix
+    if((tmp = strrchr(filePath, '.')))			
+    {
+        memcpy(suffix, tmp, strlen(tmp));
+    }
+
+    //3. get The path 
+#ifdef _OS_WIN_
+    if((tmp = strrchr(filePath, '\\')))		
+    {
+        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
+        strcat(path, "\\");
+    }
+#endif
+
+#ifdef	_OS_LINUX_
+    if((tmp = strrchr(filePath, '/')))		
+    {
+        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
+        strcat(path, "/");
+    }
+#endif
+
+    //4. get The FILE name 
+    if(tmp == NULL)
+    {
+        memcpy(name, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
+    }
+    else
+    {
+        memcpy(name, tmp + 1, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix) - 1));
+    }
+
+    //5. package The decryFileName
+#ifdef  _OS_WIN_
+    sprintf(encFileName, "%s%s%s%s", path, name, ENCRYFLAG, suffix);
+#endif
+#ifdef  _OS_LINUX_
+    sprintf(encFileName, "%s%s%s%s", path, name, ENCRYFLAG, suffix);
+#endif
+
+
+}
+
+
 void package_AES_RSA_encry_file_name(char *filePath, char *encFileName)
 {
     char *tmp = NULL;

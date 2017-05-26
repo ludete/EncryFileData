@@ -35,11 +35,11 @@ $(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o ./src/include_sub_
 	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
 
 #release_version
-$(release_version):./src/test_release.o  ./src/encryDecryFile.o ./src/include_sub_function.o 
+$(release_version):./src/test_release.o  ./src/encryDecryFile.o ./src/include_sub_function.o ./src/include_EncryDecry.o
 	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS) 
 	
 #libencrydecry
-$(libencrydecry): ./src/encryDecryFile.c ./src/include_sub_function.c 
+$(libencrydecry): ./src/encryDecryFile.c ./src/include_sub_function.c ./src/include_EncryDecry.c
 	$(CC) $^ -fPIC -shared -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
 
 #test

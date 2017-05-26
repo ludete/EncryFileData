@@ -13,11 +13,13 @@ TEMPLATE = app
 
 SOURCES += \
     main.cpp \
-    mywidget.cpp
+    mywidget.cpp \
+    myAdddll.cpp
 
 HEADERS += \
     mywidget.h \
-    encryDecryFile.h
+    encryDecryFile.h \
+    myAdddll.h
 
 FORMS += \
     mywidget.ui

@@ -6,10 +6,7 @@
 extern "C" {
 #endif
 
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/err.h>
-#include "thread_pool.h"
+
 
 #define FILENAMELENTH  1024
 typedef struct _encry_handle encryHandle_t;
@@ -54,36 +51,7 @@ int encryptFileData(char *filePath, char *publicPathKey);
 */
 int decryptFileData(char *filePath, char *privatePathKey);
 
-/*get the certficate news 
-*@param : publicPathKey : 证书文件名
-*@retval: success 0; fail -1;
-*/
-int get_cert_pubKey( RSA  **pRsa, char *publicPathKey);
 
-/*get The private Key News
-*@param : pRsa :  私钥信息
-*@param : privatePathKey : 私钥文件名
-*@retval: success 0; fail -1;
-*/
-int get_privateKey_new(RSA  **pRsa, char *privatePathKey);
-
-/*encry data  加密数据
-*@param : str 		 	 原始数据
-*@param : lenth 		 原始数据长度
-*@param : enData 		 加密数据
-*@param : pRsa 		 	 加密公钥信息
-*@retval: success 加密数据长度; fail -1;
-*/ 
-int encry_data(char *str, int lenth, char *enData, RSA *pRsa);
-
-/*decry data  解密数据
-*@param : str 		 	 原始数据
-*@param : lenth 		 原始数据长度
-*@param : enData 		 解密数据
-*@param : pRsa 		 	 解密私钥信息
-*@retval: success 解密数据长度; fail -1;
-*/ 
-int decry_data(char *str, int lenth, char *deData, RSA *pRsa);
 
 /*获取剩余文件的 加密所需的最小线程数(即剩余文件的最小工作轮次) 以及 (所有线程工作量)最后剩余的文件大小
 *@param : filePath 		 	 文件路径
@@ -111,7 +79,7 @@ void package_decry_file_name(char *filePath, char *decFileName);
 /*初始化, 全局变量, 工作线程池
 *@retval: success : 工作线程池 ; fail : NULL
 */
-threadpool_t *init();
+void *init();
 
 /* 解密文件线程工作 方法
 *@param : arg : 参数句柄
@@ -129,13 +97,15 @@ void encry_process(void *arg);
 *@param : pool 			 工作线程池
 *@retval: success 0, fail -1;
 */
-int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool);
+int multiDecryFile(char *filePath, char *privatePathKey, void *pool);
+
+int multiDecryFile_inFileFp(char *filePath, char *privatePathKey, void *pool);
 
 /*销毁程序: 工作线程池, 全局变量
 *@param : pool 			 工作线程池
 *@retval: success 0; fail -1;
 */
-int destroy(threadpool_t *pool );
+int destroy(void *pool );
 
 /*对称加密算法加密文件, AES
 *@param : file 		 	 原始文件的绝对路径

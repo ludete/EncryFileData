@@ -6,10 +6,12 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
+#include "encryDecryFile.h"
+
 
 #define myprint( x...) do {char bufMessagePut_Stdout_[1024];\
         sprintf(bufMessagePut_Stdout_, x);\
-        fprintf(stdout, "%s [%d], [%s]\n", bufMessagePut_Stdout_,__LINE__, __FILE__ );\
+        fprintf(stdout, "%s [%d], [%s]\r\n", bufMessagePut_Stdout_,__LINE__, __FILE__ );\
    }while (0)
 
 #define  MY_MIN(x, y)	((x) < (y) ? (x) : (y))
@@ -50,7 +52,7 @@ int get_encryNum_fromFile(char *fileName, int baseSize);
 
 /*获取文件总加密任务轮次,需要的线程总数
 *@param : workRounds   		文件加密的总轮次
-*@retval: liveThreadNum   	线程池存活线程总数
+*@param: liveThreadNum   	线程池存活线程总数
 *@param : lowRoundNum       每个线程工作的最低轮次
 *@retval: success The Number of thread, fail -1;
 */
@@ -61,6 +63,7 @@ int get_workThreadNum(int workRounds, int liveThreadNum, int *lowRoundNum);
 *
 */
 int get_workSize_thread(char *fileName, int baseSize, int liveThrnum, int *workThreadNum, int *beforeThreadSize, int *behindThreadSize, int *perRound, int *modSize);
+
 
 
 

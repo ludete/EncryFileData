@@ -19,6 +19,9 @@
 #include "include_sub_function.h"
 #include "thread_pool.h"
 #include <openssl/aes.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/err.h>
 
 #define ENCRYFLAG  "_ENCRYPT"
 #define DECRYFLAG  "_DECRYPT"
@@ -41,6 +44,8 @@ char *g_srcFile = NULL;
 
 int g_fd = 0;
 
+#define _OS_LINUX_ 1
+
 struct _encry_handle{
 
     char 		srcFile[FILENAMELENTH];			//原始文件的绝对路径
@@ -53,6 +58,43 @@ struct _encry_handle{
 	char 		*mapDstFileAddr;				//目标文件映射地址
 
 };
+
+
+
+/*get the certficate news 
+*@param : publicPathKey : 证书文件名
+*@retval: success 0; fail -1;
+*/
+int get_cert_pubKey( RSA  **pRsa, char *publicPathKey);
+
+/*get The private Key News
+*@param : pRsa :  私钥信息
+*@param : privatePathKey : 私钥文件名
+*@retval: success 0; fail -1;
+*/
+int get_privateKey_new(RSA  **pRsa, char *privatePathKey);
+
+
+/*encry data  加密数据
+*@param : str 		 	 原始数据
+*@param : lenth 		 原始数据长度
+*@param : enData 		 加密数据
+*@param : pRsa 		 	 加密公钥信息
+*@retval: success 加密数据长度; fail -1;
+*/ 
+int encry_data(char *str, int lenth, char *enData, RSA *pRsa);
+
+/*decry data  解密数据
+*@param : str 		 	 原始数据
+*@param : lenth 		 原始数据长度
+*@param : enData 		 解密数据
+*@param : pRsa 		 	 解密私钥信息
+*@retval: success 解密数据长度; fail -1;
+*/ 
+int decry_data(char *str, int lenth, char *deData, RSA *pRsa);
+
+
+
 
 
 //公钥加密信息
@@ -132,12 +174,6 @@ int get_cert_pubKey(RSA  **pRsa, char *publicPathKey)
     *pRsa = tmpRsa;
 
 End:
-
-    if(ret < 0)
-    {			
-        if(tmpRsa)  				RSA_free(tmpRsa);	
-        return ret;
-    }
 
     if(tmpEvpKey)					EVP_PKEY_free(tmpEvpKey);   
     if(tmpBio)    					BIO_free(tmpBio); 
@@ -361,7 +397,7 @@ End:
     return ret;
 }
 
-//加密文件
+//加密文件000
 int encryptFileData(char *filePath, char *publicPathKey)
 {
     int ret = 0;
@@ -388,6 +424,7 @@ int encryptFileData(char *filePath, char *publicPathKey)
     package_encry_file_name(filePath, encFileName);
 
     //3. open The encFile
+    myprint("------------- 1 filePath : %s -------------", filePath);
     myprint("encFileName : %s", encFileName);
     if(if_file_exist(encFileName))
     {
@@ -477,7 +514,7 @@ void dealwith_per_threadWork(RSA *pRsa, char *mapSrcaddr, char *mapDstaddr, int 
 
 
 
-int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
+int multiDecryFile(char *filePath, char *privatePathKey, void *poolSrc)
 {
 	int ret = 0;
   	int threadNum = 0;			  		//解密文件需要的线程总数
@@ -491,6 +528,7 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
  	char decryFileName[FILENAMELENTH] = { 0 };
 	int modSize = 0;					//剩余文件大小
 	int i = 0;
+	threadpool_t *pool = (threadpool_t *)poolSrc;
 	
 	//1. jurge The file is exsit
 	if(!filePath || !privatePathKey)
@@ -505,7 +543,7 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
 		ret = -1;
 		goto End;
 	}
-
+	
 	//2. caculate The element
 	if((ret = get_workSize_thread(filePath, DECRYMAXSIZE, LIVETHRM, &threadNum, &beforeSize, &behindSize, &perRoundNum, &modSize)) < 0)
 	{
@@ -556,10 +594,10 @@ int multiDecryFile(char *filePath, char *privatePathKey, threadpool_t *pool)
 	}
 
 	//5.caculate The per_thread working
+	g_decryFile = decryFileName;
+	g_srcFile = filePath;
 	dealwith_per_threadWork(pRsa, mp_src, mp_dst, threadNum, beforeSize, behindSize, ENCRYMAXSIZE, perRoundNum);
-	printf("\n");
-	myprint("mp_src : %p, mp_dst : %p",mp_src,mp_dst);
-	printf("\n");
+
 	//6. add task to per_Thread 
 	for(i = 0; i < threadNum; i++)
     {
@@ -710,19 +748,17 @@ End:
 }
 
 
-int multiDecryFile_inFileFp(char *filePath, char *privatePathKey, threadpool_t *pool)
+int multiDecryFile_inFileFp(char *filePath, char *privatePathKey, void *poolSrc)
 {
     int ret = 0;
-  //  int roundNum = 0; 				//本文件需要解密的总轮次
     int threadNum = 0;				//解密文件需要的线程总数
-//    int lowRoundNum = 0;			//每个线程最低的工作轮次
     RSA *pRsa = NULL;				//秘钥信息
     char decryFileName[FILENAMELENTH] = { 0 };
     int i = 0, begin, end;			//定义时间开始和结束标志位  ;
 	char cmdBuf[FILENAMELENTH] = { 0 };
 	int  beforeSize = 0, behindSize = 0;
 	int perRoundNum = 0,  modSize = 0;
-
+	threadpool_t *pool = (threadpool_t*)poolSrc;
 
 	begin=clock();//开始计时
 
@@ -872,7 +908,7 @@ void decry_process_OK_copyFile(void *arg)
 }
 
 
-threadpool_t *init()
+void *init()
 {
     threadpool_t *pool = NULL;
 	int i = 0;
@@ -902,9 +938,10 @@ threadpool_t *init()
     return pool;	
 }	
 
-int destroy(threadpool_t *pool )
+int destroy(void *poolSrc )
 {
 	int i = 0;
+	threadpool_t *pool = (threadpool_t*)poolSrc;
     threadpool_destroy(pool);
     free(g_threadWorkHandle);
 	pthread_mutex_destroy(&g_muetx_writeLock);
@@ -955,124 +992,6 @@ int get_residueSize_needThreadNum(char *filePath, int threadNum, int lowRoundNum
 End:
 
     return ret;
-}
-
-
-//组装 解密文件名
-void package_decry_file_name(char *filePath, char *decFileName)
-{
-    char *tmp = NULL;
-    char suffix[20] = { 0 };
-    char path[FILENAMELENTH] = { 0 };
-    char name[FILENAMELENTH] = { 0 };
-    char tmpname[FILENAMELENTH] = { 0 };
-
-    //2. get The SrcFile suffix
-    if((tmp = strrchr(filePath, '.')))			
-    {
-        memcpy(suffix, tmp, strlen(tmp));
-    }
-
-    //3. get The path 
-#ifdef _OS_WIN_
-    if((tmp = strrchr(filePath, '\\')))		
-    {
-        memcpy(path, filePath, MY_MIN(516, strlen(filePath) - strlen(tmp)));
-        strcat(path, "\\");
-    }
-#endif
-
-#ifdef  _OS_LINUX_
-
-    if((tmp = strrchr(filePath, '/')))		
-    {
-        memcpy(path, filePath, MY_MIN(516, strlen(filePath) - strlen(tmp)));
-        strcat(path, "/");
-    }
-#endif
-
-    //4. get The FILE name 
-    if(tmp == NULL)
-    {
-        memcpy(tmpname, filePath, MY_MIN(258, strlen(filePath) - strlen(suffix)));
-    }
-    else
-    {
-        memcpy(tmpname, tmp, MY_MIN(258, strlen(tmp) - strlen(suffix)));
-    }
-
-    if((tmp = memstr(tmpname, strlen(tmpname), ENCRYFLAG)))
-    {
-        memcpy(name, tmpname, strlen(tmpname) - strlen(tmp));
-    }
-    else
-    {
-        myprint("No find encrypt File, The name : %s", tmpname);
-        return;
-    }
-
-    //5. package The decryFileName
-#ifdef	_OS_WIN_
-    sprintf(decFileName, "%s%s%s%s", path, name, DECRYFLAG, suffix);
-#endif
-#ifdef	_OS_LINUX_
-    sprintf(decFileName, "%s%s%s%s", path, name, DECRYFLAG, suffix);
-#endif
-
-
-}
-
-
-
-void package_encry_file_name(char *filePath, char *encFileName)
-{
-    char *tmp = NULL;
-    char suffix[20] = { 0 };
-    char path[FILENAMELENTH] = { 0 };
-    char name[FILENAMELENTH] = { 0 };
-
-    //2. get The SrcFile suffix
-    if((tmp = strrchr(filePath, '.')))			
-    {
-        memcpy(suffix, tmp, strlen(tmp));
-    }
-
-    //3. get The path 
-#ifdef _OS_WIN_
-    if((tmp = strrchr(filePath, '\\')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "\\");
-    }
-#endif
-
-#ifdef	_OS_LINUX_
-    if((tmp = strrchr(filePath, '/')))		
-    {
-        memcpy(path, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(tmp)));
-        strcat(path, "/");
-    }
-#endif
-
-    //4. get The FILE name 
-    if(tmp == NULL)
-    {
-        memcpy(name, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
-    }
-    else
-    {
-        memcpy(name, tmp + 1, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix) - 1));
-    }
-
-    //5. package The decryFileName
-#ifdef  _OS_WIN_
-    sprintf(encFileName, "%s%s%s%s", path, name, ENCRYFLAG, suffix);
-#endif
-#ifdef  _OS_LINUX_
-    sprintf(encFileName, "%s%s%s%s", path, name, ENCRYFLAG, suffix);
-#endif
-
-
 }
 
 

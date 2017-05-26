@@ -16,22 +16,32 @@ test = test_debug
 test_thread_pool = test_thread_pool
 mutilProcessCopy = mutilProcessCopy
 test_create_citi_file = test_create_citi_file
+libencrydecry = libencrydecry.so
+release_version = release_EncryDecry_File
 
-#target = $(encry_dec_data) $(test_thread_pool)
-target =  $(encry_dec_data)	$(test) $(mutilProcessCopy) $(test_create_citi_file)
+target =  $(release_version) $(libencrydecry)
+#target =  $(encry_dec_data)	$(test) $(mutilProcessCopy) $(test_create_citi_file) $(libencrydecry) $(release_version)
 
 ALL:$(target)
     
 #生成所有的.o文件
 $(obj):%.o:%.c
-	$(CC) -c $< -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS) -D _OS_LINUX_
+	$(CC) -c $< -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS) 
 	
 	
 	
 #encry_dec_data
 $(encry_dec_data):./src/test_encry_dec.o  ./src/encryptData.o ./src/include_sub_function.o ./src/thread_pool.o
 	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
+
+#release_version
+$(release_version):./src/test_release.o  ./src/encryDecryFile.o ./src/include_sub_function.o 
+	$(CC) $^ -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS) 
 	
+#libencrydecry
+$(libencrydecry): ./src/encryDecryFile.c ./src/include_sub_function.c 
+	$(CC) $^ -fPIC -shared -o $@ $(CPPFLAGS)  $(LIBPATH) $(LIBS) $(CFLAGS)  
+
 #test
 $(test):./src/test.o
 	$(CC) $^ -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS)  

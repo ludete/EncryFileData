@@ -11,11 +11,7 @@
 #define PRIVATEKEY 	"/home/yyx/MyEncryProject/EncryFileData/clientCert/client-key.pem"
 #define PUBLICKEY 	"/home/yyx/MyEncryProject/EncryFileData/clientCert/client-cert.pem"
 
-typedef struct _retval_{
-	int retval;
-	char reason[1024];
 
-}retval_t;
 
 
 void test_content()
@@ -80,11 +76,11 @@ void test_decryptFile()
 
 void test_multiDecryFile()
 {
-	threadpool_t *pool = NULL;
+	void *pool = NULL;
 	
 	pool = init();
-	//if((multiDecryFile("C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY, pool)) < 0)			assert(0); 
-	if((multiDecryFile("hello_ENCRYPT.wmv", PRIVATEKEY, pool)) < 0)			assert(0); 
+	if((multiDecryFile("C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY, pool)) < 0)			assert(0); 
+	//if((multiDecryFile("hello_ENCRYPT.wmv", PRIVATEKEY, pool)) < 0)			assert(0); 
 	//if((multiDecryFile("hello_ENCRYPT.mp4", PRIVATEKEY, pool)) < 0)			assert(0); 
 	
 
@@ -95,7 +91,7 @@ void test_multiDecryFile()
 
 void test_lockNum()
 {
-	threadpool_t *pool = NULL;
+	void *pool = NULL;
 	pool = init();
 
 	myprint("The Num : %d", test_pthread_mutex_Num());
@@ -153,7 +149,7 @@ void test_AES_RSA_encryfile()
 
 void test_muldecry_fileFp()
 {
-	threadpool_t *pool = NULL;
+	void *pool = NULL;
 	
 	pool = init();
 	if((multiDecryFile_inFileFp("C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg", PRIVATEKEY, pool)) < 0) 		assert(0); 
@@ -181,10 +177,10 @@ int main()
 {
 	int ret = 0;
 
-	//test_encryptFile();
+	test_encryptFile();
 	//test_decryptFile();
 	//test_multiDecryFile();
-	//test_muldecry_fileFp();
+	test_muldecry_fileFp();
 
 	//test_content();	
 	//test_lockNum();
@@ -192,9 +188,9 @@ int main()
 	//test_AES_decryfile();
 	//test_AES_RSA_encryfile();
 	//test_AES_RSA_decryfile();
-	retval_t retval;
-	retval = test_retval();
-	myprint("retval : %d, reason : %s", retval.retval, retval.reason);
+	//retval_t retval;
+	//retval = test_retval();
+	//myprint("retval : %d, reason : %s", retval.retval, retval.reason);
 
 
 

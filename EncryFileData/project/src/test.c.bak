@@ -1,340 +1,208 @@
 #include <stdio.h>  
 #include <stdlib.h>  
-#include <sys/types.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <stdbool.h>
-#include <assert.h>
 #include <string.h>
-#include <sys/select.h>
-#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <unistd.h>
 
-#define FILESIZE 	256
-#define SCAN_TIME	5
+#include <openssl/aes.h>
 
 #define myprint( x...) do {char bufMessagePut_Stdout_[1024];\
         sprintf(bufMessagePut_Stdout_, x);\
         fprintf(stdout, "%s [%d], [%s]\n", bufMessagePut_Stdout_,__LINE__, __FILE__ );\
-    }while (0) 
+   }while (0)
 
 
-//select()  瀹炵幇瀹氭椂鍣?
-void timer_select(int seconds)
+
+void *child_func(void *arg)
 {
-	struct timeval temp;
- 	temp.tv_sec = seconds;
-    temp.tv_usec = 0;
-    int err = 0;
-	do{
-		err = select(0, NULL, NULL, NULL, (struct timeval *)&temp);
-	}while(err < 0 && errno == EINTR);
+	//pthread_detach(pthread_self());
+#if 1
 
-}
-
-
-
-void find_directory_file()
-{
-	char *direct = NULL;
-	DIR *directory_pointer = NULL;
-  	struct dirent *entry = NULL;
-	struct stat  fileStat;
-	static bool flag = false;
-	int roundNum = 0, filyType = 0;
-	char *tableName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/C_16_01_04_10_16_10_030_B_L.jpg";
-	char *templateName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/downLoadTemplateNewestFromServer_17_05_08.pdf";
-	
-	struct FileModifyTime{
-		char fileName[FILESIZE];
-		time_t modifyTime;
-	};
-
-	struct FileList{
-		char fileName[FILESIZE];
-		struct FileList *next;
-	}start, *node, *tmpNode;
-
-	static struct FileModifyTime fileModifyTime[2];
-
-//	myprint("********** 0 ******************");
-	//1.获取目录
-	if((direct = getenv("SERverSourceDir")) == NULL)
+	int fd = 0;
+	if((fd = open("hello", O_WRONLY | O_CREAT, 0777)) < 0)
 	{
-		myprint("Err : func getenv() key = SERverSourceDir");
-		assert(0);
-	}
-//	myprint("********** 1 ******************");
-	//2. 打开目录, 获取目录中的文件
-	if((directory_pointer = opendir(direct)) == NULL)
-	{
-		myprint("Err : func opendir() Dirpath : %s", direct);
-		assert(0);
+		printf("Err : open(), [%d],[%s]\n", __LINE__, __FILE__);		
 	}
 	else
 	{
-		//3. 获取目录中的文件
-		start.next = NULL;
-		node = &start;
-		while((entry = readdir(directory_pointer)))
-		{		
-			node->next = (struct FileList*)malloc(sizeof(struct FileList));
-			node = node->next;
-			memset(node->fileName, 0, FILESIZE);
-			sprintf(node->fileName, "%s%s", direct, entry->d_name);	
-			node->next = NULL;
-		}
-		closedir(directory_pointer);
+		printf("open() OK!!!!\n");
 	}
-	
+	if(fd > 0)	close(fd);
+#endif
 
-	//4.遍历获取的目录下的文件, 获取它们的时间属性
-	node = start.next;
-	while(node)
-	{	
-		//4.1 去除'.'和'..'目录
-		if(strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/.") == 0 || strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/..") == 0)
-		{
-			node = node->next;
-			continue;
-		}
-			
-		//4.2 获取剩余文件属性
-		memset(&fileStat, 0, sizeof(struct stat));
-		if((stat(node->fileName, &fileStat)) < 0)
-		{
-			myprint("Err : func stat() filename : %s", node->fileName);
-			assert(0);
-		}
+#if 0
+	FILE *fp = NULL;
+	if((fp = fopen("hello", "a+")) == NULL )
+	{
+		printf("Err : fopen(), [%d],[%s]\n", __LINE__, __FILE__);
+	}
+	else
+	{
+		printf("fopen() OK!!!!\n");
+	}
 
-		//4.3 初次打开该目录, 拷贝各文件的属性至缓存
-		if(!flag)
-		{			
-			fileModifyTime[roundNum].modifyTime = fileStat.st_atime;
-			strcpy(fileModifyTime[roundNum].fileName, node->fileName);
-	//		myprint("********** 6 ******************");
-	
-			if((strcmp(fileModifyTime[roundNum].fileName, templateName)) == 0)
-				printf("The template file have find 0 [%d],[%s]\n", __LINE__, __FILE__);								
-			else if((strcmp(fileModifyTime[roundNum].fileName, tableName)) == 0)
-				printf("The table file have find 1 [%d],[%s]\n", __LINE__, __FILE__);						
-	
-									
-		}
-		else		//非首次, 进行属性判断
-		{	
-//			myprint("********** 9 ******************");
-			
-			if((strlen(fileModifyTime[roundNum].fileName)) == 0 )
-			{
-		//		myprint("********** 10 ******************");
-				strcpy(fileModifyTime[roundNum].fileName, node->fileName);
-				fileModifyTime[roundNum].modifyTime = fileStat.st_atime;
-				if((strcmp(fileModifyTime[roundNum].fileName, templateName)) == 0)
-				{
-					filyType = 0;
-				}	
-				else if(strcmp(fileModifyTime[roundNum].fileName, tableName) == 0)
-				{
-					filyType = 1;		
-				}
-				else 
-				{
-					assert(0);
-				}
-				
-				if(filyType == 0)
-					printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);							
-				else if(filyType == 1)
-					printf("The table file have find 1 [%d],[%s]",  __LINE__, __FILE__);							
-			}
-			else
-			{
-		//		myprint("********** 11 ******************");
-				if((strcmp(fileModifyTime[roundNum].fileName, templateName)) == 0 && fileModifyTime[roundNum].modifyTime != fileStat.st_atime)				
-				{
-					filyType = 0;					
-				}
-				else if((strcmp(fileModifyTime[roundNum].fileName, tableName)) == 0 && fileModifyTime[roundNum].modifyTime != fileStat.st_atime)
-				{
-					filyType = 1;									
-				}
-				else
-				{
-					myprint("fileModifyTime[%d].fileName : %s",roundNum, fileModifyTime[roundNum].fileName );
-					goto End;
-				}
-				if(filyType == 0)
-					printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);							
-				else if(filyType == 1)
-					printf("The table file have find 1 [%d],[%s]",  __LINE__, __FILE__);			
-				fileModifyTime[roundNum].modifyTime = fileStat.st_atime;
-			}
-		
-		}			
-	End:			
-		roundNum++;
-		node = node->next;
-	
-	}
-	flag = true;
-	
-#if 1
-	node = start.next;
-	while(node)
-	{		
-		tmpNode = node;
-		node = node->next;
-		free(tmpNode);			
-	}
+	if(fp)	fclose(fp);	
 #endif	
 	
+	pthread_exit(NULL);
 }
 
-
-
-
-void test_sacn_modify_fileTime()
+void test_create_file()
 {
-	
-	while(1)
+    int i =0;
+	pthread_t pthid[5];
+
+	for(i =0; i < 5; i++)
 	{
-		timer_select(SCAN_TIME);
-		printf("-----------======= 0 ======-------------\n");
-		find_directory_file();
-		printf("-----------======= 1 ======-------------\n");
+		pthread_create(&pthid[i], NULL, child_func, NULL);
+
 	}
-	
+
+	for(i = 0; i < 5; i++)
+		pthread_join( pthid[i], NULL);
+
 }
 
-  
+int test_aes_encry()
+{
+	//1. 原始数据, 16个1
+    unsigned char buf[16];
+    memset(buf,1,sizeof(buf));
+
+    unsigned char buf2[16];
+    unsigned char buf3[16];
+
+    //2. 测试用的key是全零, 即指定的 对称秘钥
+    unsigned char aes_keybuf[32];
+    memset(aes_keybuf,0,sizeof(aes_keybuf));
+
+   	//3. 将指定的秘钥字符串 转换成 OpenSSL加密秘钥格式
+    AES_KEY aeskey;
+	AES_KEY desAeskey;
+    AES_set_encrypt_key(aes_keybuf, 256, &aeskey);
+
+	//4. AES加密数据
+    AES_encrypt(buf, buf2, &aeskey);
+
+	//5. 将指定秘钥字符串 转换成 OpenSSL解密秘钥格式
+    AES_set_decrypt_key(aes_keybuf,256,&desAeskey);
+    AES_decrypt(buf2,buf3,&desAeskey);
+
+	//if(memcmp())
+
+   	if(memcmp(buf,buf3,sizeof(buf))==0)
+      	printf("test success\r\n");
+   	else
+      	printf("test fail\r\n");
+
+	myprint("AES_BLOCK_SIZE : %d", AES_BLOCK_SIZE);
+
+	return 0;
+}
+
+int test_cbcstyle_func(int argc, char** argv)
+{  
+    AES_KEY aes;  
+    unsigned char key[AES_BLOCK_SIZE];        // AES_BLOCK_SIZE = 16  
+    unsigned char iv[AES_BLOCK_SIZE];         // init vector  
+    unsigned char* input_string;  
+    unsigned char* encrypt_string;  
+    unsigned char* decrypt_string;  
+    unsigned int len;        				 // encrypt length (in multiple of AES_BLOCK_SIZE)  
+    unsigned int i;  
+   
+    // check usage  
+    if (argc != 2) {  
+        fprintf(stderr, "%s <plain text>\n", argv[0]);  
+        exit(-1);  
+    }  
+   
+    // set the encryption length  
+    len = 0;  
+    if ((strlen(argv[1]) + 1) % AES_BLOCK_SIZE == 0) {  
+        len = strlen(argv[1]) + 1;  
+    } else {  
+        len = ((strlen(argv[1]) + 1) / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;  
+    }  
+   
+    // set the input string  
+    input_string = (unsigned char*)calloc(len, sizeof(unsigned char));  
+    if (input_string == NULL) {  
+        fprintf(stderr, "Unable to allocate memory for input_string\n");  
+        exit(-1);  
+    }  
+    strncpy((char*)input_string, argv[1], strlen(argv[1]));  
+   
+    // Generate AES 128-bit key  
+    for (i=0; i<16; ++i) {  
+        key[i] = 32 + i;  
+    }  
+   
+    // Set encryption key  
+    for (i=0; i<AES_BLOCK_SIZE; ++i) {  
+        iv[i] = 0;  
+    }
+	
+	//设置加密秘钥格式
+    if (AES_set_encrypt_key(key, 128, &aes) < 0) {  
+        fprintf(stderr, "Unable to set encryption key in AES\n");  
+        exit(-1);  
+    }  
+   
+    // alloc encrypt_string  
+    encrypt_string = (unsigned char*)calloc(len, sizeof(unsigned char));      
+    if (encrypt_string == NULL) {  
+        fprintf(stderr, "Unable to allocate memory for encrypt_string\n");  
+        exit(-1);  
+    }  
+   
+    // encrypt (iv will change)  
+    AES_cbc_encrypt(input_string, encrypt_string, len, &aes, iv, AES_ENCRYPT);  
+   
+    // alloc decrypt_string  
+    decrypt_string = (unsigned char*)calloc(len, sizeof(unsigned char));  
+    if (decrypt_string == NULL) {  
+        fprintf(stderr, "Unable to allocate memory for decrypt_string\n");  
+        exit(-1);  
+    }  
+   
+    // Set decryption key  
+    for (i=0; i<AES_BLOCK_SIZE; ++i) {  
+        iv[i] = 0;  
+    }  
+    if (AES_set_decrypt_key(key, 128, &aes) < 0) {  
+        fprintf(stderr, "Unable to set decryption key in AES\n");  
+        exit(-1);  
+    }  
+   
+    // decrypt  
+    AES_cbc_encrypt(encrypt_string, decrypt_string, len, &aes, iv,   
+            AES_DECRYPT);  
+   
+    // print  
+    printf("input_string = %s\n", input_string);  
+    printf("encrypted string = ");  
+    for (i=0; i<len; ++i) {  
+        printf("%x%x", (encrypt_string[i] >> 4) & 0xf,   
+                encrypt_string[i] & 0xf);      
+    }  
+    printf("\n");  
+    printf("decrypted string = %s\n", decrypt_string);  
+   
+    return 0;  
+}  
+
+
+
+
 int main(int argc, char* argv[])  
 {  
 
-  	test_sacn_modify_fileTime();
+	//test_aes_encry();
+	test_cbcstyle_func();
     return 0;  
 } 
-
-void find_directory_file022()
-{
-	char *direct = NULL;
-	DIR *directory_pointer = NULL;
-  	struct dirent *entry = NULL;
-	struct stat  fileStat;
-	static bool flag = false;
-	int i = 0;
-	char *tableName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/C_16_01_04_10_16_10_030_B_L.jpg";
-	char *templateName = "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/downLoadTemplateNewestFromServer_17_05_08.pdf";
-	
-	struct FileModifyTime{
-		char fileName[FILESIZE];
-		time_t modifyTime;
-	};
-
-	struct FileList{
-		char fileName[FILESIZE];
-		struct FileList *next;
-	}start, *node, *tmpNode;
-
-	static struct FileModifyTime fileModifyTime[2];
-	memset(fileModifyTime, 0, 2 * sizeof( struct FileModifyTime));
-	
-//	myprint("********** 0 ******************");
-	//1.获取目录
-	if((direct = getenv("SERverSourceDir")) == NULL)
-	{
-		myprint("Err : func getenv() key = SERverSourceDir");
-		assert(0);
-	}
-//	myprint("********** direct : %s ******************", direct);
-	//2. 打开目录, 获取目录中的文件
-	if((directory_pointer = opendir(direct)) == NULL)
-	{
-		myprint("Err : func opendir() Dirpath : %s", direct);
-		assert(0);
-	}
-	else
-	{
-	//	myprint("********** 2 ******************");
-		//3. 获取目录中的文件
-		start.next = NULL;
-		node = &start;
-		while((entry = readdir(directory_pointer)))
-		{
-			node->next = (struct FileList*)malloc(sizeof(struct FileList));
-			node = node->next;
-			memset(node->fileName, 0, FILESIZE);
-			sprintf(node->fileName, "%s%s", direct, entry->d_name);			
-			node->next = NULL;
-		}
-		closedir(directory_pointer);
-	}
-	
-	//4.遍历获取的目录下的文件, 获取它们的时间属性
-	node = start.next;
-	//myprint("********** 4 ******************");
-	while(node)
-	{	
-		//4.1 去除'.'和'..'目录
-		if(strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/.") == 0 || strcmp(node->fileName, "/home/yyx/work/openssl-FTP-TCP/project/sourcefile/..") == 0)
-		{
-			node = node->next;
-			continue;
-		}
-				
-		//4.2 获取剩余文件属性
-		memset(&fileStat, 0, sizeof(struct stat));
-		if((stat(node->fileName, &fileStat)) < 0)
-		{
-			myprint("Err : func stat() filename : %s, err : %s", node->fileName, strerror(errno));			
-			assert(0);
-		}
-
-		//4.3 初次打开该目录, 拷贝各文件的属性至缓存
-		if(!flag)
-		{			
-			fileModifyTime[i].modifyTime = fileStat.st_mtime;
-			strcpy(fileModifyTime[i].fileName, node->fileName);			
-					
-			if((strcmp(fileModifyTime[i].fileName, templateName)) == 0)
-				printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);			
-			else if((strcmp(fileModifyTime[i].fileName, tableName)) == 0)
-				printf("The table file have find 1 [%d],[%s]", __LINE__, __FILE__);											
-			
-			if(i == 1)			flag = true;	
-			myprint("********** 8******************");			
-		}
-		else		//非首次, 进行属性判断
-		{						
-			if((strcmp(fileModifyTime[i].fileName, templateName)) == 0 && (fileModifyTime[i].modifyTime != fileStat.st_mtime))				
-			{				
-				printf("The template file have find 0 [%d],[%s]", __LINE__, __FILE__);				
-				fileModifyTime[i].modifyTime = fileStat.st_mtime;
-			}
-			else if((strcmp(fileModifyTime[i].fileName, tableName)) == 0 && (fileModifyTime[i].modifyTime != fileStat.st_mtime))
-			{					
-				printf("The table file have find 1 [%d],[%s]", __LINE__, __FILE__);
-				fileModifyTime[i].modifyTime = fileStat.st_mtime;
-			}
-			else
-			{
-				myprint("********** 12 ******************");
-				myprint("fileModifyTime[%d].fileName : %s", i, fileModifyTime[i].fileName);
-			}	
-		}			
-		node = node->next;			
-		i++;
-
-	}
-	flag = true;
-	node = start.next;
-	while(node)
-	{
-		tmpNode = node;
-		node = node->next;
-		free(tmpNode);			
-	}
-	
-	
-}
 

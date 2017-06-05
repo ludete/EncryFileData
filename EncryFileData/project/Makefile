@@ -19,7 +19,7 @@ test_create_citi_file = test_create_citi_file
 libencrydecry = libencrydecry.so
 release_version = release_EncryDecry_File
 
-target =  $(release_version) $(libencrydecry)
+target =  $(release_version) $(libencrydecry) $(test_create_citi_file) $(test)
 #target =  $(encry_dec_data)	$(test) $(mutilProcessCopy) $(test_create_citi_file) $(libencrydecry) $(release_version)
 
 ALL:$(target)

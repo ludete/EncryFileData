@@ -13,7 +13,8 @@
 
 void test_encryFile_RSA()
 {
-	char *file = "C_16_01_04_10_16_10_030_B_L.jpg";
+	//char *file = "C_16_01_04_10_16_10_030_B_L.jpg";
+	char *file = "111.txt";
 	char *publicKey = "./opub.pem";
 	char encryName[1024] = { 0 };
 	retval_t ret;
@@ -26,8 +27,9 @@ void test_encryFile_RSA()
 
 void test_decryFile_RSA()
 {
-	char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg";
-	char *privateKey = "./opriv.pem";
+	//char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT.jpg";
+	char *file = "111_ENCRYPT.txt";
+	char *privateKey = "./private.pem";
 	char decryName[1024] = { 0 };
 	retval_t ret;
 
@@ -39,8 +41,11 @@ void test_decryFile_RSA()
 
 void test_encryFile_RSA_AES()
 {
-	char *file = "C_16_01_04_10_16_10_030_B_L.jpg";
+	//char *file = "C_16_01_04_10_16_10_030_B_L.jpg";
+	char *file = "111.txt";
 	char *publicKey = "./mypublicKey.pem";
+	//char *publicKey = PUBLICKEY;
+	
 	char encryName[1024] = { 0 };
 	char *passwd = "1545adw8751";
 	retval_t ret;
@@ -54,8 +59,10 @@ void test_encryFile_RSA_AES()
 
 void test_decryFile_RSA_AES()
 {
-	char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT_RSA_AES.jpg";
+	//char *file = "C_16_01_04_10_16_10_030_B_L_ENCRYPT_RSA_AES.jpg";
+	char *file = "111_ENCRYPT_RSA_AES.txt";
 	char *privateKey = "./myprivateKey.pem";
+	//char *privateKey = PRIVATEKEY;
 	char decryName[1024] = { 0 };
 	retval_t ret;
 	ret = mix_RSA_AES_decryFile(file, privateKey, decryName);
@@ -80,7 +87,7 @@ int main()
 {
 	//test_encryFile_RSA();
 	//test_decryFile_RSA();
-	test_creat_key();
+	//test_creat_key();
 	test_encryFile_RSA_AES();
 	test_decryFile_RSA_AES();
 

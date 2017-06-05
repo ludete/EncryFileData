@@ -408,26 +408,83 @@ end:
 }
 #endif
 
+
+void create_pub_pri_key()
+{
+	int 		ret;
+	BIO			*out = NULL;
+	RSA 		*pRsa = NULL;
+	int 		bits = 512;
+	unsigned long e = RSA_3;
+	BIGNUM		*bne = NULL;
+	EVP_CIPHER *enc = NULL;
+
+	//1.create News
+	bne = BN_new();
+	ret = BN_set_word(bne, e);
+	pRsa = RSA_new();
+
+	//2.generate Key
+	ret = RSA_generate_key_ex(pRsa, bits, bne, NULL);
+	if(ret != 1)
+	{
+		printf("Err : func RSA_generate_key_ex(), [%d],[%s]\n", __LINE__, __FILE__);
+		return;
+	}
+
+	//3. 
+	enc = EVP_des_ede3_ofb();
+	out = BIO_new_file("opriv.pem", "wb");
+	ret = PEM_write_bio_RSAPrivateKey(out, pRsa, enc, NULL, 0, NULL, NULL);
+	if(ret != 1)
+	{
+		printf("Err : func PEM_write_bio_RSAPrivateKey(), [%d],[%s]\n", __LINE__, __FILE__);
+		return;
+	}
+	BIO_flush(out);
+	BIO_free(out);
+
+	out = BIO_new_file("opub.pem", "wb");
+	ret = PEM_write_bio_RSAPublicKey(out, pRsa);
+	if(ret != 1)
+	{
+		printf("Err : func PEM_write_bio_RSAPublicKey(), [%d],[%s]\n", __LINE__, __FILE__);
+		BIO_free(out);
+		return;
+	}
+	BIO_flush(out);
+	BIO_free(out);
+	
+}
+
+
+
+
+
+
+
 void testWriteRSA2PEM()
 {
     //生成密钥对
     RSA *r = RSA_new();
     int bits = 2048;
-    BIGNUM *e = BN_new();
+	
+    BIGNUM *e = BN_new();	
     BN_set_word(e, 65537);
+	
     RSA_generate_key_ex(r, bits, e, NULL);
     
     RSA_print_fp(stdout, r, 0);
     
     BIO *out;
-    out = BIO_new_file("./opriv.pem","w");
+    out = BIO_new_file("./myprivateKey.pem","w");
     //这里生成的私钥没有加密，可选加密
     int ret = PEM_write_bio_RSAPrivateKey(out, r, NULL, NULL, 0, NULL, NULL);
     printf("writepri:%d\n",ret);
     BIO_flush(out);
     BIO_free(out);
     
-    out = BIO_new_file("./opub.pem","w");
+    out = BIO_new_file("./mypublicKey.pem","w");
     ret = PEM_write_bio_RSAPublicKey(out, r);
     printf("writepub:%d\n",ret);
     BIO_flush(out);
@@ -444,9 +501,11 @@ void testWriteRSA2PEM()
 
 int main()
 {
-	testWriteRSA2PEM();
+	create_pub_pri_key();
 
-//    create_p12_cert("/root/out.p12", "1234", "/root/server_mdm.crt", "/root/server_mdm.key", "test", 0, 3650);
+//	testWriteRSA2PEM();
+
+  //  create_p12_cert("/root/out.p12", "1234", "/root/server_mdm.crt", "/root/server_mdm.key", "test", 0, 3650);
     return 0;
 }
 

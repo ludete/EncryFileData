@@ -407,31 +407,26 @@ retval_t mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey,
 			sprintf(ret.reason, "Err : func fread(), fileName : %s, [%d],[%s]", file, __LINE__, __FILE__); 				
 			goto End;					
 		}
-		if(nread == AES_BLOCK_SIZE )
+		
+		AES_encrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
+		
+		if((fwrite(outData, 1, nread, decryFp)) < 0)
 		{
-			AES_encrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);			
-			if((fwrite(outData, 1, nread, decryFp)) < 0)
-			{
-				ret.retval = -1;
-				sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", encryName, __LINE__, __FILE__);				
-				goto End;
-			}
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", encryName, __LINE__, __FILE__); 				
+			goto End;
 		}
-		else
-		{
-			if((fwrite(srcData, 1, nread, decryFp)) < 0)
-			{
-				ret.retval = -1;
-				sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", encryName, __LINE__, __FILE__);				
-				goto End;
-			}
-			break;
-		}
-				
 		memset(outData, 0,AES_BLOCK_SIZE );
 		memset(srcData, 0,AES_BLOCK_SIZE );
 	}
 
+	AES_encrypt((unsigned char*)"\r\n", (unsigned char*)outData, &aes_key);
+	if((fwrite(outData, 1, 2, decryFp)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", encryName, __LINE__, __FILE__); 				
+		goto End;
+	}
 
 End:
 	
@@ -530,6 +525,13 @@ retval_t mix_RSA_AES_decryFile(char *file, char *privatePathKey, char *decryName
 		goto End;
 	}
 
+	int srcLenth = get_file_size(file);
+	int nReadLenth = srcLenth - 256 - 2;
+	int nWriteLenth = 0;
+	printf("fileName : %s, fileLenth : %d, nReadLenth : %d, [%d],[%s]", 
+			file, srcLenth, nReadLenth, __LINE__, __FILE__);
+	
+	
 	//7.encry file Data 	   
 	while(!feof(srcFp))
 	{
@@ -539,25 +541,36 @@ retval_t mix_RSA_AES_decryFile(char *file, char *privatePathKey, char *decryName
 			sprintf(ret.reason, "Err : func fread() : %s, [%d],[%s]", file, __LINE__, __FILE__); 				
 			goto End;
 		}
-		if(nread == AES_BLOCK_SIZE)
+		AES_decrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
+		nWriteLenth += nread;
+		if(nReadLenth < nWriteLenth)
 		{
-			AES_decrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
+			nread = nread - (nWriteLenth - nReadLenth);
 			if((fwrite(outData, 1, nread, decryFp)) < 0)
 			{
 				ret.retval = -1;
 				sprintf(ret.reason, "Err : func fwrite() : %s, [%d],[%s]", decryName, __LINE__, __FILE__); 				
 				goto End;
 			}
+			break;
 		}
+		else if(nReadLenth == nWriteLenth) 
+		{
+			if((fwrite(outData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite() : %s, [%d],[%s]", decryName, __LINE__, __FILE__); 				
+				goto End;
+			}
+		}	
 		else
 		{
-			if((fwrite(srcData, 1, nread, decryFp)) < 0)
+			if((fwrite(outData, 1, nread, decryFp)) < 0)
 			{
 				ret.retval = -1;
 				sprintf(ret.reason, "Err : func fwrite() : %s, [%d],[%s]", decryName, __LINE__, __FILE__);				
 				goto End;
 			}
-			break;
 		}
 		memset(outData, 0,AES_BLOCK_SIZE );
 		memset(srcData, 0,AES_BLOCK_SIZE );

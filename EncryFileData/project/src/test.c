@@ -44,7 +44,7 @@ void *child_func(void *arg)
 		printf("fopen() OK!!!!\n");
 	}
 
-	if(fp)	fclose(fp);	
+	if(fp)	fclose(fp);	
 #endif	
 	
 	pthread_exit(NULL);
@@ -120,7 +120,7 @@ int test_cbcstyle_func(int argc, char** argv)
         exit(-1);  
     }  
    
-    // set the encryption length  
+    // set the encryption length; 获取原始数据长度  
     len = 0;  
     if ((strlen(argv[1]) + 1) % AES_BLOCK_SIZE == 0) {  
         len = strlen(argv[1]) + 1;  
@@ -128,15 +128,16 @@ int test_cbcstyle_func(int argc, char** argv)
         len = ((strlen(argv[1]) + 1) / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;  
     }  
    
-    // set the input string  
+    // set the input string, 申请内存, 拷贝原始数据  
     input_string = (unsigned char*)calloc(len, sizeof(unsigned char));  
     if (input_string == NULL) {  
         fprintf(stderr, "Unable to allocate memory for input_string\n");  
         exit(-1);  
     }  
     strncpy((char*)input_string, argv[1], strlen(argv[1]));  
+
    
-    // Generate AES 128-bit key  
+    // Generate AES 128-bit key, 创建char* 秘钥数据  
     for (i=0; i<16; ++i) {  
         key[i] = 32 + i;  
     }  
@@ -146,29 +147,30 @@ int test_cbcstyle_func(int argc, char** argv)
         iv[i] = 0;  
     }
 	
+	//设置 OpenSSL 加密秘钥格式
     if (AES_set_encrypt_key(key, 128, &aes) < 0) {  
         fprintf(stderr, "Unable to set encryption key in AES\n");  
         exit(-1);  
     }  
    
-    // alloc encrypt_string  
+    // alloc encrypt_string, 申请加密数据的内存  
     encrypt_string = (unsigned char*)calloc(len, sizeof(unsigned char));      
     if (encrypt_string == NULL) {  
         fprintf(stderr, "Unable to allocate memory for encrypt_string\n");  
         exit(-1);  
     }  
    
-    // encrypt (iv will change)  
+    // encrypt (iv will change), 数据加密  
     AES_cbc_encrypt(input_string, encrypt_string, len, &aes, iv, AES_ENCRYPT);  
    
-    // alloc decrypt_string  
+    // alloc decrypt_string, 申请解密数据的内存  
     decrypt_string = (unsigned char*)calloc(len, sizeof(unsigned char));  
     if (decrypt_string == NULL) {  
         fprintf(stderr, "Unable to allocate memory for decrypt_string\n");  
         exit(-1);  
     }  
    
-    // Set decryption key  
+    // Set decryption key,   
     for (i=0; i<AES_BLOCK_SIZE; ++i) {  
         iv[i] = 0;  
     }  
@@ -200,8 +202,9 @@ int test_cbcstyle_func(int argc, char** argv)
 int main(int argc, char* argv[])  
 {  
 
-	test_aes_encry();
-
+	printf("AES_BLOCK_SIZE : %d\r\n", AES_BLOCK_SIZE);
+	//test_aes_encry();
+	test_cbcstyle_func(argc, argv);
     return 0;  
 } 
 

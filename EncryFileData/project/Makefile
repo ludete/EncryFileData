@@ -3,7 +3,7 @@ CPPFLAGS= -I./incl -I/home/yyx/02/openssl-1.0.1t/include
 CFLAGS=-Wall -g
 LIBPATH = -L /usr/lib
 LIBS=  -lssl -lcrypto -lpthread -lm -ldl
-
+#LIBS=  -lpthread -lm -ldl
 
 #找到当前目录下所有的.c文件
 src = $(wildcard ./src/*.c)
@@ -18,10 +18,13 @@ mutilProcessCopy = mutilProcessCopy
 test_create_citi_file = test_create_citi_file
 libencrydecry = libencrydecry.so
 release_version = release_EncryDecry_File
+test_write_log = test_write_log
 
-target =  $(release_version) $(libencrydecry) $(test_create_citi_file) $(test)
+
+#target =  $(release_version) $(libencrydecry) $(test_create_citi_file) $(test) $(test_write_log)
 #target =  $(encry_dec_data)	$(test) $(mutilProcessCopy) $(test_create_citi_file) $(libencrydecry) $(release_version)
 
+target = $(test_write_log) $(libencrydecry) $(release_version)
 ALL:$(target)
     
 #生成所有的.o文件
@@ -46,6 +49,10 @@ $(libencrydecry): ./src/encryDecryFile.c ./src/include_sub_function.c ./src/incl
 $(test):./src/test.o
 	$(CC) $^ -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS)  
 
+
+#test
+$(test_write_log):./src/test_log.o ./src/socklog.o
+	$(CC) $^ -o $@ $(CPPFLAGS) $(LIBPATH) $(LIBS) $(CFLAGS)  
 
 #test_create_citi_file
 $(test_create_citi_file):./src/test_create_certifile.o

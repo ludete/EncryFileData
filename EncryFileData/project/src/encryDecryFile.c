@@ -33,6 +33,7 @@
 
 #define _OS_LINUX_ 1
 
+char *g_passWdSrc = "dnfqwdh34239s245";
 
 
 
@@ -336,7 +337,7 @@ retval_t mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey,
 	}
 	else if(encryType == 1)
 	{	
-	    get_cert_pubKey((void **)&pRsa, publicPathKey);
+	    ret = get_cert_pubKey((void **)&pRsa, publicPathKey);
 		if(ret.retval < 0)
 		{		
 	        goto End;
@@ -695,4 +696,256 @@ End:
 	return ret;
 }
 
+/*
+*@param : srcFilePath   encryFile absolute path
+*@param : dstFilePath   decryFile absolute path
+*@param : privateKey    private key absolute path
+*/
+retval_t decryDirAllFile(char *srcFilePath, char *dstFilePath, char *privateKey)
+{
+	retval_t ret;
+	AES_KEY aes_key;				//OpenSSL格式的秘钥
+	char cmdBuf[FILENAMELENTH] = { 0 };
+	FILE *srcFp = NULL, *decryFp = NULL;
+	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
+	int nread = 0, passLen = 0;
+	char passwd[33] = { 0 };
+	char encryPassData[256] = { 0 };
+	RSA  *pRsa = NULL;
+
+	memset(&ret, 0, sizeof(retval_t));
+
+	if(if_file_exist(dstFilePath))
+	{
+		sprintf(cmdBuf, "rm %s", dstFilePath);
+		if((pox_system(cmdBuf)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func pox_system() : %s [%d],[%s]", cmdBuf, __LINE__, __FILE__); 				
+			goto End;
+		}
+	}
+
+	//3.打开文件
+	if((srcFp = fopen(srcFilePath, "rb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", srcFilePath, __LINE__, __FILE__); 				
+		goto End;
+	}
+	if((decryFp = fopen(dstFilePath, "wb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", dstFilePath, __LINE__, __FILE__);				
+		goto End;
+	}
+
+	//4.获取私钥信息
+	if((get_privateKey_new((void **)&pRsa, privateKey)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func get_privateKey_new() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;
+	}
+
+	//5.read encry password from src File,	注意: 非对称加密, 加密的密文长度为256(固定)
+	if((fread(encryPassData, 1, 256, srcFp)) != 256)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fread() : %s, [%d],[%s]", srcFilePath, __LINE__, __FILE__);				
+		goto End;
+	}
+	if((passLen = decry_data(encryPassData, 256, passwd, pRsa)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func decry_data() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;
+	}
+
+
+	//6. set The Symmetric encryption key
+	if(AES_set_decrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func AES_set_decrypt_key() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;
+	}
+
+	//7.encry file Data 	   
+	while(!feof(srcFp))
+	{
+		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func fread() : %s, [%d],[%s]", srcFilePath, __LINE__, __FILE__); 				
+			goto End;
+		}
+		if(nread == AES_BLOCK_SIZE)
+		{
+			AES_decrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
+			if((fwrite(outData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite() : %s, [%d],[%s]", dstFilePath, __LINE__, __FILE__); 				
+				goto End;
+			}
+		}
+		else
+		{
+			if((fwrite(srcData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite() : %s, [%d],[%s]", dstFilePath, __LINE__, __FILE__);				
+				goto End;
+			}
+			break;
+		}
+		memset(outData, 0,AES_BLOCK_SIZE );
+		memset(srcData, 0,AES_BLOCK_SIZE );
+	}
+
+End:
+	if(decryFp)			fclose(decryFp);
+	if(srcFp)			fclose(srcFp);
+	if(pRsa)			RSA_free(pRsa);
+
+	return ret;
+}
+
+/*
+*@param : srcFilePath   srcFile absolute path
+*@param : dstFilePath   encryFile absolute path
+*@param : publicKey     public key absolute path
+*/
+retval_t encryDirAllFile(char *srcFilePath, char *dstFilePath, char *publicPathKey, int encryType)
+{
+	retval_t ret ;	
+	AES_KEY aes_key;				
+	char cmdBuf[FILENAMELENTH] = { 0 };
+	FILE *srcFp = NULL, *decryFp = NULL;
+	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
+	int nread = 0;
+	RSA *pRsa = NULL;
+	char enData_RSA[DECRYMAXSIZE] = { 0 };
+
+	
+	memset(&ret, 0, sizeof(retval_t));
+
+	//1. get The cert news And encry password data in use RSA style
+	if(encryType == 0)
+	{
+		ret = get_public_key((void **)&pRsa, publicPathKey);
+		if(ret.retval < 0)
+		{		
+			goto End;
+		}
+	}
+	else if(encryType == 1)
+	{	
+		ret = get_cert_pubKey((void **)&pRsa, publicPathKey);
+		if(ret.retval < 0)
+		{		
+			goto End;
+		}
+	}
+	else
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : No find The encryType : %d, [%d],[%s]", encryType, __LINE__, __FILE__);				
+		goto End;				
+	}
+
+	//2. encrypt AES passwd;
+	if((encry_data(g_passWdSrc, strlen(g_passWdSrc), enData_RSA, pRsa)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func encry_data() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;	
+	}
+
+	//3. jurge The dstFile isExist? true : delete it; the open The two File
+	if(if_file_exist(dstFilePath))
+	{
+		sprintf(cmdBuf, "rm %s", dstFilePath);
+		if((pox_system(cmdBuf)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func pox_system() : %s [%d],[%s]", cmdBuf, __LINE__, __FILE__); 				
+			goto End;		
+		}
+	}
+	if((srcFp = fopen(srcFilePath, "rb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", srcFilePath, __LINE__, __FILE__); 				
+		goto End;	
+	}
+	if((decryFp = fopen(dstFilePath, "wb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", dstFilePath, __LINE__, __FILE__);				
+		goto End;
+	}
+
+
+	//4.write RSA encry data to encryFile
+	if((fwrite(enData_RSA, 1, sizeof(enData_RSA), decryFp)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fwrite() : %s [%d],[%s]", dstFilePath, __LINE__, __FILE__);				
+		goto End;		
+	}
+	
+	//5.设置OpenSSL格式的秘钥
+	if(AES_set_encrypt_key((const unsigned char*)g_passWdSrc, strlen(g_passWdSrc) * 8, &aes_key) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func AES_set_encrypt_key(), [%d],[%s]", __LINE__, __FILE__); 				
+		goto End;	
+	}
+
+
+	//6.encry file Data 	   
+	while(!feof(srcFp))
+	{	
+		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func fread(), fileName : %s, [%d],[%s]", srcFilePath, __LINE__, __FILE__);				
+			goto End;					
+		}
+		if(nread == AES_BLOCK_SIZE )
+		{
+			AES_encrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);			
+			if((fwrite(outData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", dstFilePath, __LINE__, __FILE__);				
+				goto End;
+			}
+		}
+		else
+		{
+			if((fwrite(srcData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", dstFilePath, __LINE__, __FILE__);				
+				goto End;
+			}
+			break;
+		}
+				
+		memset(outData, 0,AES_BLOCK_SIZE );
+		memset(srcData, 0,AES_BLOCK_SIZE );
+	}
+
+
+End:
+	
+	if(decryFp) 		fclose(decryFp);
+	if(srcFp)			fclose(srcFp);
+	if(pRsa)			RSA_free(pRsa);
+	
+	return ret;
+}
 

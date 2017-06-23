@@ -82,14 +82,55 @@ void test_creat_key()
 
 }
 
+void test_decry_dir()
+{
+	retval_t	ret;
+	char *privateKey = "myprivateKey.pem";
+	char *srcFile = "/home/yyx/MyEncryProject/EncryFileData/project/encry/111_AES_RSA_ENCRY.txt";
+	char *dstFile = "/home/yyx/MyEncryProject/EncryFileData/project/decry/111_AES_RSA_DECRY.txt";
 
+	ret = decryDirAllFile(srcFile, dstFile, privateKey);
+	if(ret.retval < 0)
+	{
+		printf("Error : %s\n", ret.reason);
+		return;
+	}
+	else
+	{
+		printf("OK : decry Dir success ...\n" );
+		return;
+	}
+}
+
+void test_encry_dir()
+{
+	char *srcFile = "/home/yyx/MyEncryProject/EncryFileData/project/111.txt";
+	char *encryFile = "/home/yyx/MyEncryProject/EncryFileData/project/encry/111_AES_RSA_ENCRY.txt";
+	char *publicKey = "mypublicKey.pem";
+	retval_t ret;
+
+	ret = encryDirAllFile(srcFile, encryFile, publicKey, 0);
+	if(ret.retval < 0)
+	{
+		printf("Error : %s", ret.reason);
+		return;
+	}
+	else
+	{
+		printf("OK : encry Dir success ...\n" );
+		return;
+	}
+	
+}
 int main()
 {
 	//test_encryFile_RSA();
 	//test_decryFile_RSA();
-	//test_creat_key();
-	test_encryFile_RSA_AES();
-	test_decryFile_RSA_AES();
+	test_creat_key();
+	//test_encryFile_RSA_AES();
+	//test_decryFile_RSA_AES();
+	test_encry_dir();
+	test_decry_dir();
 
 	return 0;
 }

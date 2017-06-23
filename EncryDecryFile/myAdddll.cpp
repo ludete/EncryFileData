@@ -4,6 +4,7 @@
 
 myAddDll::myAddDll()
 {
+#if 0
     this->encryHandle("libencrydecry.so");
     this->sslHandle("libssl.so.1.1");
     this->cryptHandle("libcrypto.so.1.1");
@@ -21,7 +22,7 @@ myAddDll::myAddDll()
         QMessageBox::about(this, "Load *.so", "No Find libcrypto.so.1.1");
     }
 
-
+#endif
 
 
 }

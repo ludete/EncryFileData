@@ -48,10 +48,25 @@ retval_t mix_RSA_AES_decryFile(char *file, char *privatePathKey, char *decryFile
 
 
 /*create The private Key
-*@param : fileName   private key absolute path
+*@param : publicKey    publicKey key absolute path
+*@param : privateKey   private   key absolute path
 */
 retval_t create_private_public_key(char *publicKey, char *privateKey);
 
+/*
+*@param : srcFilePath   encryFile absolute path
+*@param : dstFilePath   decryFile absolute path
+*@param : privateKey    private key absolute path
+*/
+retval_t decryDirAllFile(char *srcFilePath, char *dstFilePath, char *privateKey);
+
+/*
+*@param : srcFilePath   srcFile absolute path
+*@param : dstFilePath   encryFile absolute path
+*@param : publicKey     public key absolute path
+*@param : encryType   	0 publicKey, 1 publicCertKey;
+*/
+retval_t encryDirAllFile(char *srcFilePath, char *dstFilePath, char *publicKey, int encrytype);
 
 
 #ifdef __cplusplus

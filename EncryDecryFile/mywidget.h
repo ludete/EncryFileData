@@ -33,13 +33,24 @@ private slots:
 
     void on_createKey_clicked();
 
+    void on_selectDecryDir_clicked();
+
+    void on_selectEncryDir_clicked();
+
+    bool isDirExist(QString fullPath);
+
+    bool createDir(QString dirPath);
+
 private:
     Ui::MyWidget *ui;
     char publicPath_pri[FILENAMELENTH];
     char encryFile_pri[FILENAMELENTH];
     char decryFile_pri[FILENAMELENTH];
-    char privatePath_pri[FILENAMELENTH];    
-    void *pool_pri;
+    char privatePath_pri[FILENAMELENTH];
+    QString encryDir_pri;
+    QString decryDir_pri;
+    bool type_pri;      //true : file; false : dir;
+
 };
 
 #define MY_MIN(x, y)   ((x) < (y)) ? (x) : (y)

@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QString>
+#include <QDir>
 
 #include "encryDecryFile.h"
 #include "mywidget.h"
@@ -29,7 +30,7 @@ MyWidget::MyWidget(QWidget *parent) :
     memset(this->decryFile_pri, 0, FILENAMELENTH);
     memset(this->publicPath_pri, 0, FILENAMELENTH);
     memset(this->privatePath_pri, 0, FILENAMELENTH);
-    this->pool_pri = NULL;
+    this->type_pri = true;
 }
 
 MyWidget::~MyWidget()
@@ -37,6 +38,7 @@ MyWidget::~MyWidget()
     delete ui;
 }
 
+int test_list(QString dirPath);
 
 void MyWidget::on_selectEncryKey_clicked()
 {
@@ -67,6 +69,7 @@ void MyWidget::on_selectEncryFile_clicked()
 
         memset(this->encryFile_pri, 0, FILENAMELENTH);
         memcpy( this->encryFile_pri, tmp, MY_MIN(FILENAMELENTH, strlen(tmp)));
+        this->type_pri = true;
     }
 }
 
@@ -99,38 +102,74 @@ void MyWidget::on_selectDecryFile_clicked()
 
         memset(this->decryFile_pri, 0, FILENAMELENTH);
         memcpy( this->decryFile_pri, tmp, MY_MIN(FILENAMELENTH, strlen(tmp)));
+        this->type_pri = true;
+    }
+}
+
+bool MyWidget::isDirExist(QString fullPath)
+{
+    QDir dir(fullPath);
+    if(dir.exists())
+    {
+      return true;
+    }
+    return false;
+}
+
+bool MyWidget::createDir(QString dirPath)
+{
+    QDir dir(dirPath);
+    bool ok = dir.mkdir(dirPath); //只创建一级子目录，即必须保证上级目录存在
+    return ok;
+}
+
+void MyWidget::on_selectDecryDir_clicked()
+{
+    this->decryDir_pri  = QFileDialog::getExistingDirectory(this,"select Decry DirPath...","../");
+    if(decryDir_pri.isEmpty())
+    {
+        return;
+    }
+    else
+    {
+        QMessageBox::about(this, "info", decryDir_pri);
+        this->type_pri = false;
+    }
+}
+
+void MyWidget::on_selectEncryDir_clicked()
+{
+    this->encryDir_pri  = QFileDialog::getExistingDirectory(this,"select Decry DirPath...","../");
+    if(encryDir_pri.isEmpty())
+    {
+        return;
+    }
+    else
+    {
+        QMessageBox::about(this, "info", encryDir_pri);
+        this->type_pri = false;
     }
 }
 
 void MyWidget::on_Encry_clicked()
 {
-
     retval_t ret ;
-    bool ok = false;
-    char *passwd = NULL;
-    QByteArray keyba;
+    char *passwd = "dqduhquihui23217";
     char encryFileName[FILENAMELENTH] = { 0 };
+    bool OK;
 
-    //1.Get AES passwd
-    QString text = QInputDialog::getText(this,
-                "Passwd",
-                "please Enter your passwd",
-                QLineEdit::Normal, QString::null, &ok);
-    keyba = text.toLatin1();
-    passwd = keyba.data();
 
-    //2.choose The work flow
-    if(ok && !text.isEmpty())
+    if(this->type_pri)
     {
         if (strlen(this->encryFile_pri ) == 0 )
         {
-            QMessageBox::about(this, "EncryFile", "No input EncryFile");
-            return;
+            QMessageBox::about(this, "EncryFile", "Error : No input EncryFile");
+             goto End;
         }
-        else if( strlen(this->publicPath_pri) == 0)
+        if( strlen(this->publicPath_pri) == 0)
         {
-            QMessageBox::about(this, "PUBLICKEY", "No input publicKey");
-            return;
+            QMessageBox::about(this, "PUBLICKEY", "Error : No input publicKey");
+             goto End;
         }
         else
         {
@@ -138,53 +177,176 @@ void MyWidget::on_Encry_clicked()
             if(ret.retval < 0)
             {
                 QMessageBox::about(this, "ENCRY FILE", QString(ret.reason));
+                 goto End;
             }
             else
             {
                 QMessageBox::about(this, "ENCRY FILE", QString(encryFileName));
             }
-            memset(this->encryFile_pri, 0 , FILENAMELENTH );
-            memset(this->publicPath_pri, 0, FILENAMELENTH);
         }
-
     }
     else
     {
-        QMessageBox::about(this, "PassWd", "No input Passwd");
+        if (this->encryDir_pri.isEmpty())
+        {
+            QMessageBox::about(this, "EncryDir", "Error : No input Decry Dir");
+            goto End;
+        }
+        if( strlen(this->publicPath_pri) == 0)
+        {
+            QMessageBox::about(this, "PUBLICKEY", "Error : No input privateKey");
+            goto End;
+        }
+        //1. create The dir To store decryFile
+        QString  mewStoreDirDecryPath = this->encryDir_pri + "/encryDir";
+        if((OK = this->isDirExist(mewStoreDirDecryPath)) == false)
+        {
+            if((OK = this->createDir(mewStoreDirDecryPath)) == false)
+            {
+                QString errors = "create dir : " + mewStoreDirDecryPath + " failed";
+                QMessageBox::about(this, "Error", errors);
+                goto End;
+            }
+        }
+
+        //2. list Folder content,
+        QDir dir(this->encryDir_pri);
+        dir.setFilter(QDir::Files | QDir::Hidden | QDir::NoSymLinks);
+        QFileInfoList list = dir.entryInfoList();
+        for (int i = 0; i < list.size(); ++i)
+        {
+            QFileInfo fileInfo = list.at(i);
+            if(fileInfo.size() > 0 && fileInfo.baseName().indexOf("_ENCRYPT_RSA_AES") <0 && fileInfo.baseName().indexOf("_DECRYPT_RSA_AES") < 0)
+            {
+               //3. assemble newFilePath
+               QByteArray keybaone, keybatwo;
+               QString newFilePath = mewStoreDirDecryPath + "/" + fileInfo.baseName() + "_ENCRYPT_RSA_AES."  + fileInfo.suffix();
+               keybaone = fileInfo.absoluteFilePath().toLatin1();
+               char *srcFile = keybaone.data();
+               qDebug() << fileInfo.absoluteFilePath();
+               qDebug() << srcFile;
+               keybatwo = newFilePath.toLatin1();
+               char *dstFile = keybatwo.data();
+               qDebug() << newFilePath;
+               qDebug() << dstFile;
+               ret = encryDirAllFile(srcFile, dstFile, this->publicPath_pri, 0);
+               if(ret.retval < 0)
+               {
+                    QMessageBox::about(this, "Error",  QString(ret.reason));
+                    goto End;
+               }
+            }
+        }
+        if(ret.retval == 0)
+        {
+            QMessageBox::about(this, "SUCCESS", "OK, Encry DirAllFile ...");
+        }
     }
+
+End:
+    memset(this->encryFile_pri, 0 , FILENAMELENTH );
+    memset(this->publicPath_pri, 0, FILENAMELENTH);
+    this->encryDir_pri = "";
+
 }
+
 
 void MyWidget::on_Decry_clicked()
 {
     retval_t ret;
     char decryFileName[FILENAMELENTH] = { 0 };
+    bool OK;
+    QByteArray keyba;
 
-
-    if (strlen(this->decryFile_pri ) == 0 )
+    if(this->type_pri)
     {
-        QMessageBox::about(this, "DecryFile", "No input DecryFile");
-        return;
-    }
-    else if( strlen(this->privatePath_pri) == 0)
-    {
-        QMessageBox::about(this, "PRIVATEKEY", "No input privateKey");
-        return;
-    }
-    else
-    {
-        ret = mix_RSA_AES_decryFile(this->decryFile_pri, this->privatePath_pri, decryFileName);
-        if(ret.retval < 0)
+        //1. encry File
+        if (strlen(this->decryFile_pri ) == 0 )
         {
-            QMessageBox::about(this, "DECRY FILE", QString(ret.reason));
+            QMessageBox::about(this, "DecryFile", "No input DecryFile");
+            goto End;
+        }
+        if( strlen(this->privatePath_pri) == 0)
+        {
+            QMessageBox::about(this, "PRIVATEKEY", "No input privateKey");
+            goto End;
         }
         else
         {
-            QMessageBox::about(this, "DECRY FILE", QString(decryFileName));
+            ret = mix_RSA_AES_decryFile(this->decryFile_pri, this->privatePath_pri, decryFileName);
+            if(ret.retval < 0)
+            {
+                QMessageBox::about(this, "DECRY FILE", QString(ret.reason));
+                goto End;
+            }
+            else
+            {
+                QMessageBox::about(this, "DECRY FILE", QString(decryFileName));
+                goto End;
+            }
         }
-        memset(this->decryFile_pri, 0 , FILENAMELENTH );
-        memset(this->privatePath_pri, 0, FILENAMELENTH);
+    }
+    else        //decry dir
+    {
+
+        if (this->decryDir_pri.isEmpty())
+        {
+            QMessageBox::about(this, "Decry Dir", "No input Decry Dir");
+             goto End;
+        }
+        if( strlen(this->privatePath_pri) == 0)
+        {
+            QMessageBox::about(this, "PRIVATEKEY", "No input privateKey");
+             goto End;
+        }
+        //1. create The dir To store decryFile
+        QString  mewStoreDirDecryPath = this->decryDir_pri + "/decryDir";
+        if((OK = this->isDirExist(mewStoreDirDecryPath)) == false)
+        {
+            if((OK = this->createDir(mewStoreDirDecryPath)) == false)
+            {
+                QString errors = "create dir : " + mewStoreDirDecryPath + " failed";
+                QMessageBox::about(this, "Error", errors);
+                 goto End;
+            }
+        }
+
+        //2. list Folder content,
+        QDir dir(this->decryDir_pri);
+        dir.setFilter(QDir::Files | QDir::Hidden | QDir::NoSymLinks);
+        QFileInfoList list = dir.entryInfoList();
+        for (int i = 0; i < list.size(); ++i)
+        {
+            QFileInfo fileInfo = list.at(i);
+            if(fileInfo.size() > 0 && fileInfo.baseName().indexOf("_ENCRYPT_RSA_AES") >= 0)
+            {
+               QByteArray keybaone, keybatwo;
+               //3. assemble newFilePath
+               QString newFilePath = mewStoreDirDecryPath + "/" + fileInfo.baseName() + "_DECRYPT_RSA_AES."  + fileInfo.suffix();
+               keybaone = fileInfo.absoluteFilePath().toLatin1();
+               char *srcFile = keybaone.data();
+               keybatwo = newFilePath.toLatin1();
+               char *dstFile = keybatwo.data();
+               qDebug() << srcFile;
+               qDebug() << dstFile;
+               ret = decryDirAllFile(srcFile, dstFile, this->privatePath_pri);
+               if(ret.retval < 0)
+               {
+                    QMessageBox::about(this, "Error",  QString(ret.reason));
+                    goto End;
+               }
+            }
+        }
+        if(ret.retval == 0)
+        {
+            QMessageBox::about(this, "SUCCESS", "OK, Decry DirAllFile ...");
+        }
     }
 
+End:
+    memset(privatePath_pri, 0, FILENAMELENTH);
+    memset(decryFile_pri, 0, FILENAMELENTH);
+    decryDir_pri = "";
 }
 
 void MyWidget::on_createKey_clicked()
@@ -247,4 +409,57 @@ void MyWidget::on_createKey_clicked()
 
     memset(this->publicPath_pri, 0, FILENAMELENTH);
     memset(this->privatePath_pri, 0, FILENAMELENTH);
+}
+
+
+void findSubstr()
+{
+     QString x = "sticky question";
+     QString y = "sti";
+     x.indexOf(y);               // returns 0
+     x.indexOf(y, 1);            // returns 10
+     x.indexOf(y, 10);           // returns 10
+     x.indexOf(y, 11);           // returns -1
+}
+
+int test_list(QString dirPath)
+ {
+    QByteArray keyba;
+     QDir dir(dirPath);
+     dir.setFilter(QDir::Files | QDir::Hidden | QDir::NoSymLinks);
+//     dir.setSorting(QDir::Size | QDir::Reversed);
+
+     QFileInfoList list = dir.entryInfoList();
+     cout << "file Num : " <<list.size() <<endl;
+     for (int i = 0; i < list.size(); ++i)
+     {
+         QFileInfo fileInfo = list.at(i);
+//         std::cout << qPrintable(QString("%1 %2").arg(fileInfo.size(), 10)
+//                                                 .arg(fileInfo.fileName()));
+        keyba = fileInfo.absoluteFilePath().toLatin1();
+        char *srcFile = keyba.data();
+        qDebug() << srcFile;
+        qDebug() << fileInfo.absoluteFilePath();
+
+#if 0
+         if(fileInfo.size() > 0)
+         {
+            QString file = fileInfo.baseName() ;
+            qDebug() << file;
+            QString suf = fileInfo.suffix();
+            qDebug() << suf ;
+        }
+
+#endif
+
+     }
+     return 0;
+
+#if 0
+     //2.transformation DirPath Qstring to char*
+
+
+
+#endif
+
 }

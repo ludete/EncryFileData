@@ -24,9 +24,16 @@ HEADERS += \
 FORMS += \
     mywidget.ui
 
+#RC_ICONS =EncryDecryFile.ico
+RC_FILE += addicon.rc
+
 unix{
 INCLUDEPATH += -I/home/yyx02/QtCode/build-EncryDecryFile-Desktop_Qt_5_4_2_GCC_32bit-Release/include
 
 LIBS +=  -L./ -lssl -lcrypto -lencrydecry
 LIBS += -lpthread
 }
+
+DISTFILES += \
+    EncryDecryFile.ico \
+    addicon.rc

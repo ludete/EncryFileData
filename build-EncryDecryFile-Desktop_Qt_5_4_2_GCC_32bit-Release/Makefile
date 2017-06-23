@@ -49,11 +49,15 @@ OBJECTS_DIR   = ./
 ####### Files
 
 SOURCES       = ../EncryDecryFile/main.cpp \
-		../EncryDecryFile/mywidget.cpp moc_mywidget.cpp
+		../EncryDecryFile/mywidget.cpp \
+		../EncryDecryFile/myAdddll.cpp moc_mywidget.cpp
 OBJECTS       = main.o \
 		mywidget.o \
+		myAdddll.o \
 		moc_mywidget.o
-DIST          = ../../Qt5.4.2/5.4/gcc/mkspecs/features/spec_pre.prf \
+DIST          = ../EncryDecryFile/EncryDecryFile.ico \
+		../EncryDecryFile/addicon.rc \
+		../../Qt5.4.2/5.4/gcc/mkspecs/features/spec_pre.prf \
 		../../Qt5.4.2/5.4/gcc/mkspecs/common/shell-unix.conf \
 		../../Qt5.4.2/5.4/gcc/mkspecs/common/unix.conf \
 		../../Qt5.4.2/5.4/gcc/mkspecs/common/linux.conf \
@@ -173,8 +177,10 @@ DIST          = ../../Qt5.4.2/5.4/gcc/mkspecs/features/spec_pre.prf \
 		../../Qt5.4.2/5.4/gcc/mkspecs/features/yacc.prf \
 		../../Qt5.4.2/5.4/gcc/mkspecs/features/lex.prf \
 		../EncryDecryFile/EncryDecryFile.pro ../EncryDecryFile/mywidget.h \
-		../EncryDecryFile/encryDecryFile.h ../EncryDecryFile/main.cpp \
-		../EncryDecryFile/mywidget.cpp
+		../EncryDecryFile/encryDecryFile.h \
+		../EncryDecryFile/myAdddll.h ../EncryDecryFile/main.cpp \
+		../EncryDecryFile/mywidget.cpp \
+		../EncryDecryFile/myAdddll.cpp
 QMAKE_TARGET  = EncryDecryFile
 DESTDIR       = #avoid trailing-slash linebreak
 TARGET        = EncryDecryFile
@@ -466,8 +472,8 @@ dist: distdir FORCE
 distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
-	$(COPY_FILE) --parents ../EncryDecryFile/mywidget.h ../EncryDecryFile/encryDecryFile.h $(DISTDIR)/
-	$(COPY_FILE) --parents ../EncryDecryFile/main.cpp ../EncryDecryFile/mywidget.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../EncryDecryFile/mywidget.h ../EncryDecryFile/encryDecryFile.h ../EncryDecryFile/myAdddll.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../EncryDecryFile/main.cpp ../EncryDecryFile/mywidget.cpp ../EncryDecryFile/myAdddll.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents ../EncryDecryFile/mywidget.ui $(DISTDIR)/
 
 
@@ -895,6 +901,115 @@ mywidget.o: ../EncryDecryFile/mywidget.cpp ../../Qt5.4.2/5.4/gcc/include/QtCore/
 		../../Qt5.4.2/5.4/gcc/include/QtWidgets/qabstractbutton.h \
 		../../Qt5.4.2/5.4/gcc/include/QtWidgets/QSpacerItem
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mywidget.o ../EncryDecryFile/mywidget.cpp
+
+myAdddll.o: ../EncryDecryFile/myAdddll.cpp ../EncryDecryFile/myAdddll.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/QLibrary \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qlibrary.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qobject.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qobjectdefs.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qnamespace.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qglobal.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qconfig.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qfeatures.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qsystemdetection.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qprocessordetection.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qcompilerdetection.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qtypeinfo.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qtypetraits.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qsysinfo.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qlogging.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qflags.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qbasicatomic.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_bootstrap.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qgenericatomic.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_msvc.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_armv7.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_armv6.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_armv5.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_ia64.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_mips.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_x86.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_cxx11.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_gcc.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qatomic_unix.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qglobalstatic.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qmutex.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qnumeric.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qobjectdefs_impl.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qstring.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qchar.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qbytearray.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qrefcount.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qarraydata.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qstringbuilder.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qlist.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qalgorithms.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qiterator.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qbytearraylist.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qcoreevent.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qscopedpointer.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qmetatype.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qvarlengtharray.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qcontainerfwd.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qisenum.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qobject_impl.h \
+		../../Qt5.4.2/5.4/gcc/include/QtWidgets/QMessageBox \
+		../../Qt5.4.2/5.4/gcc/include/QtWidgets/qmessagebox.h \
+		../../Qt5.4.2/5.4/gcc/include/QtWidgets/qdialog.h \
+		../../Qt5.4.2/5.4/gcc/include/QtWidgets/qwidget.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qwindowdefs.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qwindowdefs_win.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qmargins.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qpaintdevice.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qrect.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qsize.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qpoint.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qpalette.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qcolor.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qrgb.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qstringlist.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qdatastream.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qiodevice.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qpair.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qregexp.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qstringmatcher.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qbrush.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qvector.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qmatrix.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qpolygon.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qregion.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qline.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qtransform.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qpainterpath.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qimage.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qpixelformat.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qpixmap.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qsharedpointer.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qshareddata.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qhash.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qsharedpointer_impl.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qfont.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qfontmetrics.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qfontinfo.h \
+		../../Qt5.4.2/5.4/gcc/include/QtWidgets/qsizepolicy.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qcursor.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qkeysequence.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qevent.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qvariant.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qmap.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qdebug.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qtextstream.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qlocale.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qset.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qcontiguouscache.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qurl.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qurlquery.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qfile.h \
+		../../Qt5.4.2/5.4/gcc/include/QtCore/qfiledevice.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qvector2d.h \
+		../../Qt5.4.2/5.4/gcc/include/QtGui/qtouchdevice.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o myAdddll.o ../EncryDecryFile/myAdddll.cpp
 
 moc_mywidget.o: moc_mywidget.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_mywidget.o moc_mywidget.cpp

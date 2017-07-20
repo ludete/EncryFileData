@@ -46,6 +46,20 @@ retval_t mix_RSA_AES_encryFile(char *file, char *passWdSrc, char *publicPathKey,
 */
 retval_t mix_RSA_AES_decryFile(char *file, char *privatePathKey, char *decryFile);
 
+/*encry file in RSA_AES in single thread
+*@param : filePath    		The file will be encry
+*@param : privatePathKey   	publicKey or publicCertKey absolutely path
+*@param : decFileName 		decry File Name
+*/
+retval_t mix_RSA_AES_encryDirAllFile(char *file, char *passWdSrc, char *publicPathKey, char *storeFilePath, int encryType);
+
+/*decry file in RSA_AES in single thread
+*@param : file    			The file will be decry
+*@param : privatePathKey   	privatePathKey absolutely path
+*@param : decFileName 		decry File Name
+*/
+retval_t mix_RSA_AES_decryDirAllFile(char *file, char *privatePathKey, char *decryStorePath);
+
 
 /*create The private Key
 *@param : fileName   private key absolute path

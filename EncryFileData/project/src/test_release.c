@@ -87,7 +87,7 @@ int main()
 {
 	//test_encryFile_RSA();
 	//test_decryFile_RSA();
-	//test_creat_key();
+	test_creat_key();
 	test_encryFile_RSA_AES();
 	test_decryFile_RSA_AES();
 

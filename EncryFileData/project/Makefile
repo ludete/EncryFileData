@@ -1,7 +1,7 @@
 CC=gcc
 CPPFLAGS= -I./incl -I/home/yyx/02/openssl-1.0.1t/include
 CFLAGS=-Wall -g
-LIBPATH = -L /usr/lib
+LIBPATH = -L/usr/lib
 LIBS=  -lssl -lcrypto -lpthread -lm -ldl
 
 

@@ -696,3 +696,324 @@ End:
 }
 
 
+retval_t mix_RSA_AES_encryDirAllFile(char *file, char *passWdSrc, char *publicPathKey, char *storeFilePath, int encryType)
+{
+	retval_t ret ;
+	AES_KEY aes_key;				
+	char cmdBuf[FILENAMELENTH] = { 0 };
+	FILE *srcFp = NULL, *decryFp = NULL;
+	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
+	int nread = 0, passLen = 0;
+	char passwd[33] = { 0 };
+	RSA *pRsa = NULL;
+	char enData_RSA[DECRYMAXSIZE] = { 0 };
+	char encryName[1024] = { 0 };
+
+	memset(&ret, 0, sizeof(retval_t));
+	
+
+	if(!file || !passWdSrc || !publicPathKey || !storeFilePath)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : file : %p, passwd : %p, publicPathKey : %p, encryName : %p, [%d],[%s]", 
+			file, passWdSrc, publicPathKey, storeFilePath, __LINE__, __FILE__); 
+		goto End;
+	}
+		
+	//0. 判断原始文件是否存在
+	if(!if_file_exist(file))
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : file : %s is not exist [%d],[%s]", file, __LINE__, __FILE__);				
+		goto End;	
+	}
+		
+	//1. 进行用户秘钥的配置(输入最大为32字节), 16, 24, 32字节
+	passLen = strlen(passWdSrc);	
+	if(passLen == 16 || passLen == 24 || passLen == 32)
+	{
+		myprint("passwd OK");		
+	}
+	else if(passLen < 16)
+	{
+		strcpy(passwd, passWdSrc);
+		while(passLen < 16)
+		{
+			passwd[passLen++] = 49;
+		}		
+	}
+	else if(passLen < 24)
+	{
+		strcpy(passwd, passWdSrc);
+		while(passLen < 24)
+		{
+			passwd[passLen++] = 49;
+		}
+	}
+	else if(passLen < 32)
+	{
+		strcpy(passwd, passWdSrc);
+		while(passLen < 32)
+		{
+			passwd[passLen++] = 49;
+		}
+	}
+	else
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : The passwd Lenth is too large %d > MAXSize 32, [%d],[%s]", 
+				passLen, __LINE__, __FILE__); 
+		goto End;	
+	}
+
+				
+	//2. get The cert news And encry password data in use RSA style
+	if(encryType == 0)
+	{
+		ret = get_public_key((void **)&pRsa, publicPathKey);
+		if(ret.retval < 0)
+		{		
+			goto End;
+		}
+	}
+	else if(encryType == 1)
+	{	
+		get_cert_pubKey((void **)&pRsa, publicPathKey);
+		if(ret.retval < 0)
+		{		
+			goto End;
+		}
+	}
+	else
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : No find The encryType : %d, [%d],[%s]", encryType, __LINE__, __FILE__);				
+		goto End;				
+	}
+	if((encry_data(passwd, passLen, enData_RSA, pRsa)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func encry_data() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;	
+	}
+		
+	//3.package The encryFileName And open The file
+	
+	package_AES_RSA_encry_dirfile_name(file, storeFilePath, encryName);
+	if(if_file_exist(encryName))
+	{
+		sprintf(cmdBuf, "rm %s", encryName);
+		if((pox_system(cmdBuf)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func pox_system() : %s [%d],[%s]", cmdBuf, __LINE__, __FILE__); 				
+			goto End;		
+		}
+	}
+	if((srcFp = fopen(file, "rb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", file, __LINE__, __FILE__); 				
+		goto End;	
+	}
+	if((decryFp = fopen(encryName, "wb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", encryName, __LINE__, __FILE__); 				
+		goto End;
+	}
+
+
+	//4.write RSA encry data to encryFile
+	if((fwrite(enData_RSA, 1, sizeof(enData_RSA), decryFp)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fwrite() : %s [%d],[%s]", encryName, __LINE__, __FILE__); 				
+		goto End;		
+	}
+
+	//5.设置OpenSSL格式的秘钥
+	if(AES_set_encrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func AES_set_encrypt_key(), [%d],[%s]", __LINE__, __FILE__); 				
+		goto End;	
+	}
+
+
+	//6.encry file Data 	   
+	while(!feof(srcFp))
+	{	
+		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func fread(), fileName : %s, [%d],[%s]", file, __LINE__, __FILE__); 				
+			goto End;					
+		}
+		if(nread == AES_BLOCK_SIZE )
+		{
+			AES_encrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);			
+			if((fwrite(outData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", encryName, __LINE__, __FILE__);				
+				goto End;
+			}
+		}
+		else
+		{
+			if((fwrite(srcData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite(), fileName : %s, [%d],[%s]", encryName, __LINE__, __FILE__);				
+				goto End;
+			}
+			break;
+		}
+				
+		memset(outData, 0,AES_BLOCK_SIZE );
+		memset(srcData, 0,AES_BLOCK_SIZE );
+	}
+
+
+End:
+	
+	if(decryFp) 		fclose(decryFp);
+	if(srcFp)			fclose(srcFp);
+	if(pRsa)			RSA_free(pRsa);
+
+	return ret;
+}
+
+
+retval_t mix_RSA_AES_decryDirAllFile(char *file, char *privatePathKey, char *decryStorePath)
+{
+	retval_t ret;
+	AES_KEY aes_key;				//OpenSSL格式的秘钥
+	char cmdBuf[FILENAMELENTH] = { 0 };
+	FILE *srcFp = NULL, *decryFp = NULL;
+	char srcData[AES_BLOCK_SIZE] = { 0 }, outData[AES_BLOCK_SIZE] = { 0 };
+	int nread = 0, passLen = 0;
+	char passwd[33] = { 0 };
+	char encryPassData[256] = { 0 };
+	RSA  *pRsa = NULL;
+	char decryName[1024]  = { 0 };
+	
+	memset(&ret, 0, sizeof(retval_t));
+	
+	if(!file || !privatePathKey || !decryStorePath)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : file : %p, privatePathKey : %p, decryStorePath : %p, [%d],[%s]", 
+			file, privatePathKey, decryStorePath, __LINE__, __FILE__);				
+		goto End;
+	}
+	
+	//1. 判断原始文件是否存在
+	if(!if_file_exist(file))
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : file : %s is not exist [%d],[%s]", file, __LINE__, __FILE__);				
+		goto End;	
+	}
+	
+	//2. 生成解密文件名,并判该文件是否存在, 存在则删除
+	package_AES_RSA_decry_dirfile_name(file, decryStorePath, decryName);
+	if(if_file_exist(decryName))
+	{
+		sprintf(cmdBuf, "rm %s", decryName);
+		if((pox_system(cmdBuf)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func pox_system() : %s [%d],[%s]", cmdBuf, __LINE__, __FILE__);				
+			goto End;
+		}
+	}
+	
+	//3.打开文件
+	if((srcFp = fopen(file, "rb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", file, __LINE__, __FILE__); 				
+		goto End;
+	}
+	if((decryFp = fopen(decryName, "wb")) == NULL)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fopen() : %s [%d],[%s]", decryName, __LINE__, __FILE__);				
+		goto End;
+	}
+
+	//4.获取私钥信息
+	if((get_privateKey_new((void **)&pRsa, privatePathKey)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func get_privateKey_new() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;
+	}
+	
+	//5.read encry password from src File,	注意: 非对称加密, 加密的密文长度为256(固定)
+	if((fread(encryPassData, 1, 256, srcFp)) != 256)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func fread() : %s, [%d],[%s]", file, __LINE__, __FILE__);				
+		goto End;
+	}
+	if((passLen = decry_data(encryPassData, 256, passwd, pRsa)) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func decry_data() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;
+	}
+	
+	//6. set The Symmetric encryption key
+	if(AES_set_decrypt_key((const unsigned char*)passwd, passLen * 8, &aes_key) < 0)
+	{
+		ret.retval = -1;
+		sprintf(ret.reason, "Err : func AES_set_decrypt_key() [%d],[%s]", __LINE__, __FILE__);				
+		goto End;
+	}
+	
+	//7.encry file Data 	   
+	while(!feof(srcFp))
+	{
+		if((nread = fread(srcData, 1, AES_BLOCK_SIZE, srcFp)) < 0)
+		{
+			ret.retval = -1;
+			sprintf(ret.reason, "Err : func fread() : %s, [%d],[%s]", file, __LINE__, __FILE__);				
+			goto End;
+		}
+		if(nread == AES_BLOCK_SIZE)
+		{
+			AES_decrypt((unsigned char*)srcData, (unsigned char*)outData, &aes_key);
+			if((fwrite(outData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite() : %s, [%d],[%s]", decryName, __LINE__, __FILE__);				
+				goto End;
+			}
+		}
+		else
+		{
+			if((fwrite(srcData, 1, nread, decryFp)) < 0)
+			{
+				ret.retval = -1;
+				sprintf(ret.reason, "Err : func fwrite() : %s, [%d],[%s]", decryName, __LINE__, __FILE__);				
+				goto End;
+			}
+			break;
+		}				
+		memset(outData, 0,AES_BLOCK_SIZE );
+		memset(srcData, 0,AES_BLOCK_SIZE );
+	}
+	
+End:
+	if(decryFp) 		fclose(decryFp);
+	if(srcFp)			fclose(srcFp);
+	if(pRsa)			RSA_free(pRsa);
+
+	return ret;
+}
+
+
+

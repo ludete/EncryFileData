@@ -19,6 +19,10 @@ void package_AES_RSA_encry_file_name(char *filePath, char *encFileName);
 
 void package_AES_RSA_decry_file_name(char *filePath, char *decFileName);
 
+void package_AES_RSA_decry_dirfile_name(char *filePath,char *storeDir, char *decFileName);
+
+void package_AES_RSA_encry_dirfile_name(char *filePath, char *storeDir, char *encFileName);
+
 /*获取证书文件信息
 *@param : pRsa : 公钥信息
 *@param : publicPathKey : 证书文件路径

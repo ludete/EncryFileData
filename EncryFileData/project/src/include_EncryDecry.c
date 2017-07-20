@@ -433,3 +433,103 @@ End:
 }
 
 
+
+
+void package_AES_RSA_encry_dirfile_name(char *filePath, char *storeDir, char *encFileName)
+{
+    char *tmp = NULL;
+    char suffix[20] = { 0 };
+    char name[FILENAMELENTH] = { 0 };
+
+    //2. get The SrcFile suffix
+    if((tmp = strrchr(filePath, '.')))			
+    {
+        memcpy(suffix, tmp, strlen(tmp));
+    }
+
+    //3. get The path 
+#ifdef _OS_WIN_
+	tmp = strrchr(filePath, '\\');
+#endif
+
+#ifdef	_OS_LINUX_
+	tmp = strrchr(filePath, '/');	
+#endif
+
+    //4. get The FILE name 
+    if(tmp == NULL)
+    {
+        memcpy(name, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
+    }
+    else
+    {
+        memcpy(name, tmp + 1, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix) - 1));
+    }
+
+    //5. package The decryFileName
+#ifdef  _OS_WIN_
+    sprintf(encFileName, "%s/%s%s%s", storeDir, name, MUTILENCYR, suffix);
+#endif
+#ifdef  _OS_LINUX_
+    sprintf(encFileName, "%s/%s%s%s", storeDir, name, MUTILENCYR, suffix);
+#endif
+
+
+}
+
+
+
+//组装 解密文件名
+void package_AES_RSA_decry_dirfile_name(char *filePath,char *storeDir, char *decFileName)
+{
+    char *tmp = NULL;
+    char suffix[20] = { 0 };
+    char name[FILENAMELENTH] = { 0 };
+    char tmpname[FILENAMELENTH] = { 0 };
+
+    //2. get The SrcFile suffix
+    if((tmp = strrchr(filePath, '.')))			
+    {
+        memcpy(suffix, tmp, strlen(tmp));
+    }
+
+    //3. get The path 
+#ifdef _OS_WIN_
+	tmp = strrchr(filePath, '\\');
+#endif
+
+#ifdef  _OS_LINUX_
+	tmp = strrchr(filePath, '/');
+#endif
+
+    //4. get The FILE name 
+    if(tmp == NULL)
+    {
+        memcpy(tmpname, filePath, MY_MIN(FILENAMELENTH, strlen(filePath) - strlen(suffix)));
+    }
+    else
+    {
+        memcpy(tmpname, tmp, MY_MIN(FILENAMELENTH, strlen(tmp) - strlen(suffix)));
+    }
+
+    if((tmp = memstr(tmpname, strlen(tmpname), MUTILENCYR)))
+    {
+        memcpy(name, tmpname, strlen(tmpname) - strlen(tmp));
+    }
+    else
+    {
+        myprint("No find encrypt File, The name : %s", tmpname);
+        return;
+    }
+
+    //5. package The decryFileName
+#ifdef	_OS_WIN_
+    sprintf(decFileName, "%s/%s%s%s", storeDir, name, MUTILDECYR, suffix);
+#endif
+#ifdef	_OS_LINUX_
+    sprintf(decFileName, "%s/%s%s%s", storeDir, name, MUTILDECYR, suffix);
+#endif
+
+
+}
+
